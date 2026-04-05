@@ -66,11 +66,19 @@
 ) = {
     align(center)[
 
-    #align(right)[
-      #block(inset: (top: 6pt, right: 40pt))[
-        #text(size: 字号.小四, font: 字体.宋体)[密级：公开]
-      ]
-    ]
+    #grid(
+      columns: (1fr, 1fr),
+      align(left)[
+        #block(inset: (top: 6pt, left: 40pt))[
+          #text(size: 字号.小四, font: 字体.宋体)[□毕业论文 #h(1em) □毕业设计]
+        ]
+      ],
+      align(right)[
+        #block(inset: (top: 6pt, right: 40pt))[
+          #text(size: 字号.小四, font: 字体.宋体)[密级：公开]
+        ]
+      ],
+    )
 
     #v(42pt)
 

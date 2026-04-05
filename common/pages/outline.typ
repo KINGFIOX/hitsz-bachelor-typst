@@ -26,6 +26,7 @@
   ]
 
   #show outline.entry.where(level: 1): set text(font: 字体.黑体)
+  #set outline.entry(fill: repeat[.])
 
   #outline(title: align(center)[#special-chapter-titles.目录], indent: 1em)
 

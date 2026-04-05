@@ -1,6 +1,6 @@
 #import "../../../common/theme/type.typ": 字体, 字号
 #import "../../../common/components/typography.typ": indent
-#import "../../../common/components/typography.typ": heading-level-1-style, heading-block-unit-multiplier
+#import "../../../common/components/typography.typ": heading-level-1-style
 #import "../../../common/utils/states.typ": thesis-info-state, special-chapter-titles-state, digital-signature-option-state
 #import "../../../common/config/constants.typ": e-digital-signature-mode
 #import "../../../common/components/digital-signature.typ": use-digital-signature
@@ -45,7 +45,7 @@
 
     text()[
 
-      本人郑重声明：此处所提交的本科毕业论文（设计）《#title》，是本人在导师指导下，在哈尔滨工业大学攻读学士学位期间独立进行研究工作所取得的成果，且毕业论文（设计）中除已标注引用文献的部分外不包含他人完成或已发表的研究成果。对本毕业论文（设计）的研究工作做出重要贡献的个人和集体，均已在文中以明确方式注明。
+      本人郑重声明：此处所提交的本科毕业论文（设计）《#title》，是本人在导师指导下，在哈尔滨工业大学攻读学士学位期间独立进行研究工作所取得的成果，且毕业论文（设计）中除已标注引用文献的部分外不包含他人完成或已发表的研究成果。对本毕业论文（设计）的研究工作做出重要贡献的个人和集体，均已在文中以明确方式注明。本毕业论文（设计）对使用AI工具的情况进行了明确标注。
 
       #v(1.5em)
 
