@@ -8,16 +8,19 @@
 #let fake-par = context empty-par + v(-measure(empty-par + empty-par).height)
 
 
-#let heading-block-unit-multiplier = 2.25
+// Word 模板标题间距 (基于文档网格行距 20.6pt):
+//   一级标题: 段前 1.0 行 = 20.6pt, 段后 0.8 行 = 16.48pt
+//   二级标题: 段前/后 0.5 行 = 10.3pt
+//   三级标题: 段前/后 0.5 行 = 10.3pt
 
 #let heading-level-1-style(
   it,
-  above: 1.4em,
-  below: 1.7em,
+  above: 1.144em,
+  below: 0.916em,
   ) = {
   set align(center)
   set text(font: 字体.黑体, size: 字号.小二, weight: "regular")
-  set block(below: below, inset: (top: above))
+  set block(inset: (top: above, bottom: below))
   it
 }
 
@@ -38,8 +41,8 @@
 
 #let use-heading-preface(
   content,
-  heading-above: (1.4em, ),
-  heading-below: (1.7em, ),
+  heading-above: (1.144em, ),
+  heading-below: (0.916em, ),
   ) = {
 
   show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(heading-below, 1))
@@ -49,8 +52,8 @@
 
 #let use-heading-main(
   content,
-  heading-above: (1.4em, 1.5em, 1.56em, 0.95em, ),
-  heading-below: (1.7em, 1.51em, 1.58em, 0.94em, ),
+  heading-above: (1.144em, 0.687em, 0.736em, 0.858em, ),
+  heading-below: (0.916em, 0.687em, 0.736em, 0.858em, ),
   ) = {
 
   set heading(numbering: numbly(
@@ -86,8 +89,8 @@
 
 #let use-heading-end(
   content,
-  heading-above: (1.4em, ),
-  heading-below: (1.7em, ),
+  heading-above: (1.144em, ),
+  heading-below: (0.916em, ),
   ) = {
 
   show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(heading-below, 1))

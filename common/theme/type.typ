@@ -21,9 +21,11 @@
 )
 
 #let 字体 = (
-  宋体: ("Times New Roman", "SimSun"),
-  楷体: ("Times New Roman", "KaiTi"),
-  黑体: ("Times New Roman", "Adobe Heiti Std", "SimHei"),
-  代码: ("Consolas", "Courier New", "SimSun"),
-  华文新魏: ("STXinwei"), // 开题报告标题
+  // Word 模板: eastAsia=宋体, ascii/hAnsi=Times New Roman
+  宋体: ("Times New Roman", "SimSun", "Songti SC", "STSong"),
+  // Word 模板: eastAsia=黑体, ascii/hAnsi=Times New Roman
+  黑体: ("Times New Roman", "SimHei", "Heiti SC", "STHeiti"),
+  楷体: ("Times New Roman", "KaiTi", "Kaiti SC", "STKaiti"),
+  代码: ("Consolas", "Courier New", "SimSun", "Songti SC"),
+  华文新魏: ("STXinwei"),
 )

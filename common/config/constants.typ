@@ -51,7 +51,7 @@
 
 #let page-margins = (
   top: 3.8cm,
-  bottom: 3cm,
+  bottom: 2.85cm,
   left: 3cm,
   right: 3cm,
 )
@@ -61,5 +61,6 @@
   footer: 2.3cm,
 )
 
+// Word 模板文档网格行距 = 412 twips = 20.6pt
 #let main-text-line-spacing-multiplier = 1.25
-#let single-line-spacing = 19.75pt
+#let single-line-spacing = 20.6pt

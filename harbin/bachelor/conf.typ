@@ -187,7 +187,7 @@
 
   set page(
     paper: "a4",
-    margin: (top: 3.8cm, left: 3cm, right: 3cm, bottom: 3cm),
+    margin: (top: 3.8cm, left: 3cm, right: 3cm, bottom: 2.85cm),
   )
 
   show: show-cn-fakebold
@@ -196,10 +196,10 @@
 
   cover()
 
-  let par-spacing-base = 1.55em
-  let par-spacing-multiplier = 1.25
-  let leading = par-spacing-multiplier * par-spacing-base - 1em
-  let spacing = par-spacing-multiplier * par-spacing-base - 1em
+  // Word 模板: 正文 1.25 倍行距，文档网格行距 20.6pt
+  // leading ≈ 网格行距 - 字号高度 = 20.6pt - 12pt = 8.6pt ≈ 0.717em
+  let leading = 0.717em
+  let spacing = leading
   set par(
     first-line-indent: (
       amount: 2em,
@@ -211,25 +211,22 @@
   )
 
   set text(font: 字体.宋体, size: 字号.小四)
-  
-  let zh-tracking = 1.067em
-  // show text.where(lang: "zh"): set text(tracking: zh-tracking - 1em)
 
   show: preface
 
   if abstract-cn != none {
-    abstract-cn-page(keywords: keywords-cn, par-leading: 0.94em, par-spacing: 0.94em, text-tracking: 0.72pt)[
+    abstract-cn-page(keywords: keywords-cn, par-leading: 0.717em, par-spacing: 0.717em, text-tracking: 0.72pt)[
       #abstract-cn
     ]
   }
 
   if abstract-en != none {
-    abstract-en-page(keywords: keywords-en, par-leading: 0.775em, par-spacing: 0.77em, text-tracking: 0.2pt, text-spacing: 4.76pt)[
+    abstract-en-page(keywords: keywords-en, par-leading: 0.608em, par-spacing: 0.608em, text-tracking: 0.2pt, text-spacing: 4.76pt)[
       #abstract-en
     ]
   }
 
-  outline-page(par-leading: 0.89em)
+  outline-page(par-leading: 0.717em)
 
   figure-options = figure-options + (
     extra-kinds: (),
