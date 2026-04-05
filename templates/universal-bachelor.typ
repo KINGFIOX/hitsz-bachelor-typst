@@ -1,5 +1,3 @@
-// #import "@preview/universal-hit-thesis:0.3.0": universal-bachelor // <#用户使用>
-// #import "@local/universal-hit-thesis:0.3.0": universal-bachelor // <#本地部署>
 #import "../lib.typ": universal-bachelor // <#模板开发>
 #import universal-bachelor: *
 

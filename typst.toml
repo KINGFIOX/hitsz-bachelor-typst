@@ -2,16 +2,8 @@
 name = "universal-hit-thesis"
 version = "0.1.0"
 entrypoint = "lib.typ"
-authors = ["CHOSER Tech", "HITSZ OSA"]
-license = "MIT"
-description = "哈尔滨工业大学学位论文模板 | Universal Harbin Institute of Technology Thesis"
+authors = ["CHOSER Tech", "HITSZ OSA", "wangfiox"]
+licenses = ["MIT", "GPL-2.0-only"]
 repository = "https://github.com/KINGFIOX/hitsz-bachelor-typst"
-keywords = ["Harbin Institute of Technology", "thesis"]
-categories = ["thesis"]
 exclude = []
 compiler = "0.13.0"
-
-[template]
-path = "templates"
-entrypoint = "universal-bachelor.typ"
-thumbnail = "thumbnail.png"
