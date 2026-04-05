@@ -10,9 +10,9 @@
     // 论文标题，可使用 \n 进行换行
     title-cn: "局部多孔质气体静压轴承关键技术的研究",
     title-en: "RESEARCH ON KEY TECHNOLOGIES OF PARTIAL POROUS EXTERNALLY PRESSURIZED GAS BEARING",
-    author: "▢▢▢",
-    student-id: "▢▢▢▢▢▢▢▢▢▢",
-    supervisor: "▢▢▢ 教授",
+    author: "王靳",
+    student-id: "220111012",
+    supervisor: "薛睿",
     profession: "机械制造及其自动化",
     college: "机电工程学院",
     institute: "哈尔滨工业大学",
@@ -30,7 +30,7 @@
   ),
 
   // 参考文献配置
-  bibliography: bibliography.with("hit-thesis-ref.bib", full: true, style: "gb-t-7714-2015-numeric-hit.csl"),
+  bibliography: bibliography.with("refs.bib", full: true, style: "gb-t-7714-2015-numeric-hit.csl"),
 
   abstract-cn: [
     气体静压轴承由于具有运动精度高、摩擦损耗小、发热变形小、寿命长、无污染等特点，在航空航天工业、半导体工业、纺织工业和测量仪器中得到广泛应用。本文在分析国内外气体静压轴承的基础上，以改善气体静压轴承的静态特性和稳定性为目的，通过理论分析、仿真计算和实验研究对局部多孔质气体静压止推轴承进行了研究，同时分析轴承的结构参数和工作参数对局部多孔质气体静压止推轴承工作特性的影响，为局部多孔质气体静压轴承的设计和工程应用奠定理论基础。
