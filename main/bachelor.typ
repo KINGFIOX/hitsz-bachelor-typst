@@ -7,18 +7,16 @@
 
 #show: doc.with(
   thesis-info: (
-    // 论文标题，可使用 \n 进行换行
-    title-cn: "局部多孔质气体静压轴承关键技术的研究",
-    title-en: "RESEARCH ON KEY TECHNOLOGIES OF PARTIAL POROUS EXTERNALLY PRESSURIZED GAS BEARING",
+    title-cn: "RISC-V指令集乱序处理器设计",
+    title-en: "Design of RISC-V Out-of-Order Processor",
     author: "王靳",
     student-id: "220111012",
-    supervisor: "薛睿",
-    profession: "机械制造及其自动化",
-    college: "机电工程学院",
+    supervisor: "薛睿高级实验师",
+    profession: "计算机科学与技术",
+    college: "深圳校区计算机科学与技术学院",
     institute: "哈尔滨工业大学",
-    // year: 2024,
-    // month: 5,
-    // day: 1,
+    year: 2026,
+    month: 5,
   ),
 
   // 图表选项
