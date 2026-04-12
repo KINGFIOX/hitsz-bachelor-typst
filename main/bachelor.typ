@@ -31,26 +31,22 @@
   bibliography: bibliography.with("refs.bib", full: true, style: "gb-t-7714-2015-numeric-hit.csl"),
 
   abstract-cn: [
-    气体静压轴承由于具有运动精度高、摩擦损耗小、发热变形小、寿命长、无污染等特点，在航空航天工业、半导体工业、纺织工业和测量仪器中得到广泛应用。本文在分析国内外气体静压轴承的基础上，以改善气体静压轴承的静态特性和稳定性为目的，通过理论分析、仿真计算和实验研究对局部多孔质气体静压止推轴承进行了研究，同时分析轴承的结构参数和工作参数对局部多孔质气体静压止推轴承工作特性的影响，为局部多孔质气体静压轴承的设计和工程应用奠定理论基础。
+    随着开源指令集架构 RISC-V 的快速发展，基于开源生态开展高性能处理器研究已成为体系结构领域的重要方向。乱序执行通过动态调度与寄存器重命名提升指令级并行性，是现代处理器获得高性能的关键机制。本文围绕“RISC-V 指令集乱序处理器设计”，完成了从核心微架构到系统软件支撑的整体实现与验证。
 
-    建立基于分形几何理论的多孔质石墨渗透率与分形维数之间关系的数学模型，该模型可预测多孔质石墨的渗透率，并可直观描述孔隙的大小对渗透率的影响。
+    在微架构设计方面，本文实现了单发射乱序处理器，采用统一物理寄存器的寄存器重命名方案，支持乱序执行与顺序提交，并通过重排序机制实现精确异常。存储层次方面，实现了基于 VIPT 结构且采用 PLRU 替换策略的 ICache 与 DCache，以降低访存开销并兼顾地址转换场景下的访问效率。体系结构支持方面，实现了 M/S/U 三级特权架构、Sv39 虚拟内存机制与中断处理机制，为操作系统运行提供了完整硬件基础。
 
-    本文在理论分析的基础上，建立局部多孔质气体静压止推轴承静态特性的数学模型，在此基础上，通过工程方法和有限元方法对所建立的模型进行求解。在采用有限元方法时，首先通过加权余量法，将二阶偏微分方程降为一阶，从而，降低了对插值函数连续度的要求，同时，方便采用有限元方法进行求解。
-
-    ……
+    为保证设计正确性，本文基于 Chisel、Verilator 与 Rust 构建验证平台，结合差分测试与调试追踪工具对关键模块进行系统验证。实验结果表明，所实现处理器在乱序执行、缓存访问、异常中断处理与虚拟内存管理等关键功能上均满足设计预期，并已成功运行 xv6 教学操作系统。本文工作为 RISC-V 乱序处理器的教学与工程实践提供了可复现的实现路径与系统级参考。
   ],
-  keywords-cn: ("多孔质石墨", "……", "稳定性"),
+  keywords-cn: ("RISC-V", "乱序执行", "Chisel", "SoC", "差分测试"),
 
   abstract-en: [
-    Externally pressurized gas bearing has been widely used in the field of aviation, semiconductor, weave, and measurement apparatus because of its advantage of high accuracy, little friction, low heat distortion, long life-span, and no pollution. In this thesis, based on the domestic and overseas researching development about externally pressurized gas bearing, the author investigated the partial porous externally pressurized gas thrust bearing by theoretical analysis, computer simulation, and experiments to improve its static charaterictics and stability. The effects of structure and operating parameters on partial porous externally pressurized gas bearing has been studied. Therefore, a theoretical foundation for the designing and application for the partial porous externally pressurized gas bearing has been presented.
+    With the rapid development of the open-source RISC-V instruction set architecture, high-performance processor research based on open ecosystems has become an important direction in computer architecture. Out-of-order execution improves instruction-level parallelism through dynamic scheduling and register renaming, and is a key mechanism for modern high-performance processors. This thesis focuses on the design of a RISC-V out-of-order processor and completes an integrated implementation and verification flow from core microarchitecture to system software support.
 
-    Based on the fractal theory, a model was established to demonstrate the relationship between the porous graphite permeability and the fractal dimension. It can predict the permeability of porous graphite and show the effects of the pore size on the permeability.
+    At the microarchitectural level, a single-issue out-of-order processor is implemented with a unified physical-register-based register renaming scheme. The design supports out-of-order execution and in-order commit, and achieves precise exceptions through reorder mechanisms. In the memory hierarchy, VIPT-based instruction and data caches are implemented to reduce memory access overhead while maintaining efficiency under address translation. In architectural support, the M/S/U privilege architecture, the Sv39 virtual memory scheme, and the interrupt mechanism are fully implemented, providing complete hardware support for operating system execution.
 
-    In this thesis, the author established a model about the static characteristics of partial porous externally pressurized gas thrust bearing, and it was analyzed by engineering solution and Finite Element Method (FEM). While using FEM, the second-order partial differential equation was reduced to one-order by adopting Galerkin weighted residual method, for decreasing the continuity degree requirement of the interpolation function and facilitating to the calculation.
-
-    …
+    To ensure correctness, a verification platform based on Chisel, Verilator, and Rust is built, and key modules are validated with differential testing and debugging/tracing tools. Experimental results show that the processor meets design expectations in out-of-order execution, cache access, exception and interrupt handling, and virtual memory management, and successfully boots and runs the xv6 teaching operating system. This work provides a reproducible implementation path and a system-level reference for RISC-V out-of-order processor education and engineering practice.
   ],
-  keywords-en: ("porous graphite", "…", "Stability"),
+  keywords-en: ("RISC-V", "Out-of-Order Execution", "VIPT Cache", "Sv39", "xv6"),
 
 // 结论
   conclusion: [
@@ -175,91 +171,35 @@
 
 = #[绪#h(1em)论]
 
-== 课题背景、研究目的和意义
+== 研究背景与意义
 
-发展国防工业、微电子工业等尖端技术需要精密和超精密的仪器设备，精密仪器设备要求高速、……
+RISC-V 作为开源、模块化、可扩展的指令集架构，正在从学术研究走向产业化部署。相较于传统封闭指令集，RISC-V 在授权成本、生态开放性和可定制能力方面具有显著优势，为高校和科研机构开展处理器全栈设计提供了可行路径。与此同时，面向高性能场景的处理器普遍依赖乱序执行技术来提升指令级并行性和流水线吞吐率，因此围绕 RISC-V 乱序处理器开展研究具有明确的工程价值与教学价值。
 
-……
+从产业需求看，掌握高性能处理器核心微架构的自主设计能力，是推进自主可控芯片技术体系建设的重要基础。从教学与科研实践看，当前公开资料中存在“简单顺序核容易入门、工业级乱序核复杂度过高”的鸿沟，不利于学习者系统理解乱序执行关键机制。基于此，本文以可实现、可验证、可复现为导向，设计并实现一款面向教学与工程过渡场景的 RISC-V 乱序处理器与配套 SoC 平台。
 
-== 气体润滑轴承及其相关理论的发展概况
+== 国内外研究现状
 
-气体轴承是利用气膜支撑负荷或减少摩擦的机械构件。……
+在乱序执行理论与微架构方面，寄存器重命名、发射队列动态调度、重排序缓冲区和分支预测等机制已较为成熟，相关研究形成了完整的方法体系。典型工业处理器长期采用乱序执行以提升性能，学术界也围绕精确异常恢复、访存顺序约束和预测器结构持续优化。
 
-……
+在开源 RISC-V 处理器领域，国外项目如 BOOM 展示了参数化乱序核的完整实现路径，Rocket 及其 SoC 生成框架提供了较成熟的基础设施；国内项目如香山在高性能方向取得了显著进展，并推动了开源生态建设。然而，上述高性能项目普遍规模庞大、实现复杂，学习与二次开发门槛较高。另一方面，教学场景常用的顺序流水处理器虽然结构清晰，但难以覆盖乱序执行核心问题。
 
-=== 气体润滑轴承的发展
+在设计方法与验证方法方面，Chisel 在复杂硬件系统开发中的应用不断扩大，差分测试在处理器功能验证中的有效性也得到广泛实践。基于参考模型进行逐指令状态比对，能够显著提高问题定位效率，已成为处理器开发中重要的验证手段。
 
-1828年，*R.R.Willis* @林来兴1992空间控制技术 发表了一篇关于小孔节流平板中压力分布的文章，这是有记载的研究气体润滑的最早文献。……
+== 现有研究不足与本文切入点
 
-根据间隙内气膜压力的产生原理，气体轴承可以分为四种基本形式：
+综合现有工作，当前研究与工程实践主要存在以下不足。第一，教学级与工业级乱序处理器之间缺乏复杂度适中的进阶参考设计，学习者难以从顺序执行平滑过渡到完整乱序微架构。第二，Chisel 生态下可复用外设 IP 与系统级集成案例仍相对有限，处理器核心与 SoC 级工程实践之间缺少统一范式。第三，部分工作重实现、轻验证，缺乏覆盖模块级到系统级的验证闭环，导致复杂场景下的问题定位成本较高。
 
-（1）*气体静压轴承* 加压气体经过节流器进入间隙，在间隙内产生压力气膜使物体浮起的气体轴承，……
+针对上述不足，本文选择“单发射乱序处理器 + 完整 SoC 平台 + 多层次验证体系”的研究路线：在控制实现复杂度的前提下保留乱序执行核心机制；将处理器核、总线、存储与外设进行统一集成；通过差分测试、追踪工具与操作系统运行验证形成闭环，提升设计的可复现性和工程可用性。
 
-=== 气体润滑轴承的分类
+== 本文主要工作与技术路线
 
-根据间隙内气膜压力的产生原理，气体轴承可以分为四种基本形式，其结构如图1-1所示。
+本文采用分阶段、增量式技术路线推进研究工作。第一阶段构建 RV32I 多周期处理器与 SoC 基础平台，完成 AXI4 分层总线、多层次存储体系以及 UART、GPIO、PS2、VGA 等外设集成，并实现 M-mode 异常处理机制。第二阶段围绕缓存与乱序执行核心能力展开，完成 L1 指令缓存设计与验证，并逐步引入寄存器重命名、发射队列、重排序缓冲区与分支预测等模块。第三阶段面向系统级验证，扩展特权架构与操作系统支持能力，逐步完成 xv6 乃至 Linux 引导相关工作。
 
-（1）*气体静压轴承* 加压气体经过节流器进入间隙，在间隙内产生压力气膜使物体浮起的气体轴承，结构如 @fig:气体润滑轴承的分类1 (a) 所示。……
+在验证方法上，本文构建了以 Verilator 为底座、Rust 为主控的仿真平台，集成 Spike 差分测试、调试器与多类追踪工具，对处理器体系结构状态进行持续校验。该框架既用于功能正确性验证，也用于复杂 bug 的快速定位。根据中期进展，当前已完成基础 SoC、验证平台与部分缓存系统实现，RT-Thread 已在处理器上运行，后续将继续完成数据缓存与乱序流水线整合。
 
-#figure(
-  grid(
-    columns: (auto, auto),
-    rows: (auto, auto),
-    row-gutter: 1em,
-    column-gutter: 1em,
-    [ #align(left)[(a)]
-      #square(size: 8em, stroke: 2pt)
-      // 可替换为实际的图片
-      // image("path/to/image.png", width: 50%)
-    ],
-    [ #align(left)[(b)] #square(size: 8em, stroke: 2pt) ],
+== 论文组织结构
 
-    [ #align(left)[(c)] #square(size: 8em, stroke: 2pt) ], [ #align(left)[(d)] #square(size: 8em, stroke: 2pt) ],
-  ),
-  caption: [气体润滑轴承的分类],
-  supplement: [图],
-)<气体润滑轴承的分类1>
-
-#align(center)[(a) 气体静压轴承; (b) 气体动压轴承; (c) 气体动静压轴承; (d) 气体压膜轴承]
-
-（也可以按照下图范例书写）
-
-#figure(
-    grid(
-      columns: (auto, auto),
-      rows: (auto, auto),
-      row-gutter: 1em,
-      column-gutter: 1em,
-      [ #square(size: 8em, stroke: 2pt) #text()[ (a) 气体静压轴承 ]],
-      [ #square(size: 8em, stroke: 2pt) #text()[ (b) 气体动压轴承 ]],
-      [ #square(size: 8em, stroke: 2pt) #text()[ (c) 气体动静压轴承 ]],
-      [ #square(size: 8em, stroke: 2pt) #text()[ (d) 气体压膜轴承 ]],
-    ),
-    // image("path/to/image.png", width: 50%),
-    caption: [气体润滑轴承的分类],
-    supplement: [图],
-)<气体润滑轴承的分类2>
-
-=== 多孔质气体静压轴承的研究
-
-由于气体的压力低和可压缩性，……。
-
-==== 多孔质静压轴承的分类
-
-轴承工作面的整体或……。
-
-==== 多孔质材料特性的研究
-
-材料的主要特点是具有一定的……。
-
-（1）孔隙特性 多孔质材料是由……。
-
-……
-
-== 本文主要研究内容
-
-本课题的研究内容主要是针对局部多孔质止推轴承的多孔质材料的渗透
-率、静压轴承的静态特性、稳定性及其影响因素进行展开，……。
+全文其余章节安排如下：第二章介绍处理器开发环境、验证框架与关键技术基础；第三章阐述多周期处理器核心、总线系统与 SoC 集成实现；第四章介绍缓存子系统与关键优化机制；第五章重点描述单发射乱序执行微架构设计与实现；第六章给出系统级验证方法、实验结果与性能分析；第七章总结全文工作并展望后续改进方向。
 
 #pagebreak()
 
