@@ -3,7 +3,6 @@
 
 // 参考 本科毕业论文（设计）书写范例（理工类）.doc 进行编写
 // 编译命令  typst compile ./main/bachelor.typ --root ./
-// 实时预览  typst watch ./main/bachelor.typ --root ./
 
 #show: doc.with(
   thesis-info: (
