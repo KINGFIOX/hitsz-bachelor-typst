@@ -1,13 +1,15 @@
-#import "../config/constants.typ": special-chapter-titles-default-value, thesis-info-default-value, digital-signature-option-default-value
+#import "../config/constants.typ": (
+  digital-signature-option-default-value, special-chapter-titles-default-value, thesis-info-default-value,
+)
 
 #let default-header-text-state = state(
   "default-header-text",
-  "哈尔滨工业大学学位论文"
+  "哈尔滨工业大学学位论文",
 )
 
 #let special-chapter-titles-state = state(
   "special-chapter-titles",
-  special-chapter-titles-default-value
+  special-chapter-titles-default-value,
 )
 
 #let bibliography-state = state("bibliography")

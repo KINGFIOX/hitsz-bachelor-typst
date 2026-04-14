@@ -5,7 +5,7 @@
 #import "../components/enheading.typ": addif_enheading
 
 #let bibliography-page(
-    use-same-header-text: false,
+  use-same-header-text: false,
 ) = context [
 
   #let special-chapter-titles = special-chapter-titles-state.get()
@@ -13,7 +13,7 @@
   #show: use-hit-header.with(
     header-text: if use-same-header-text {
       special-chapter-titles.参考文献
-    }
+    },
   )
 
   #let bibliography = bibliography-state.get()

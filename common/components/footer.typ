@@ -1,13 +1,13 @@
 #import "../theme/type.typ": 字体, 字号
-#import "../config/constants.typ": page-margins, distance-to-the-edges
+#import "../config/constants.typ": distance-to-the-edges, page-margins
 
 #let use-footer-preface(content) = {
   context {
     let footer-body = context [
-        #align(center)[
-          #set text(size: 字号.小五, font: 字体.宋体)
-          #counter(page).display("- I -")
-        ]
+      #align(center)[
+        #set text(size: 字号.小五, font: 字体.宋体)
+        #counter(page).display("- I -")
+      ]
     ]
 
     let footer-body-size = measure(footer-body)

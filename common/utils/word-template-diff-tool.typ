@@ -3,7 +3,7 @@
   preface: (),
   main: (),
   ending: (),
-  content
+  content,
 ) => {
   set page(
     background: context {
@@ -31,7 +31,7 @@
           [#ending.at(ending-page-number - 1)]
         }
       }
-    }
+    },
   )
 
   content

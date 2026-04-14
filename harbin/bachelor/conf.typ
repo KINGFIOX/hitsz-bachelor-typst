@@ -1,13 +1,15 @@
 #import "../../common/theme/type.typ": 字体, 字号
-#import "../../common/components/typography.typ": use-heading-main, use-heading-preface, use-heading-end
+#import "../../common/components/typography.typ": use-heading-end, use-heading-main, use-heading-preface
 #import "../../common/components/header.typ": use-hit-header
-#import "../../common/components/footer.typ": use-footer-preface, use-footer-main
+#import "../../common/components/footer.typ": use-footer-main, use-footer-preface
 #import "config/constants.typ": special-chapter-titles-additional, thesis-info-additional
 #import "../../common/config/constants.typ": current-date, main-text-line-spacing-multiplier, single-line-spacing
 #import "../../common/utils/states.typ": special-chapter-titles-state
-#import "../../common/utils/states.typ": default-header-text-state, bibliography-state, thesis-info-state, digital-signature-option-state
+#import "../../common/utils/states.typ": (
+  bibliography-state, default-header-text-state, digital-signature-option-state, thesis-info-state,
+)
 #import "@preview/cuti:0.4.0": show-cn-fakebold
-#import "@preview/i-figured:0.2.4": show-figure, reset-counters, show-equation
+#import "@preview/i-figured:0.2.4": reset-counters, show-equation, show-figure
 #import "@preview/lovelace:0.2.0": setup-lovelace
 #import "pages/cover.typ": cover
 #import "../../common/pages/abstract.typ": abstract-cn as abstract-cn-page, abstract-en as abstract-en-page
@@ -19,7 +21,6 @@
 #import "pages/declaration-of-originality.typ": declaration-of-originality
 
 #let preface(content) = {
-
   [#metadata("") <preface-start>]
 
   context {
@@ -34,19 +35,20 @@
 
     content
   }
-
 }
 
 #let main(
   content,
   figure-options: (:),
 ) = {
-
   [#metadata("") <main-start>]
 
-  figure-options = figure-options + (
-    extra-kinds: (),
-    extra-prefixes: (:),
+  figure-options = (
+    figure-options
+      + (
+        extra-kinds: (),
+        extra-prefixes: (:),
+      )
   )
 
   set page(numbering: "1")
@@ -111,7 +113,6 @@
 
 
 #let ending(content) = {
-
   [#metadata("") <ending-start>]
 
   show: use-heading-end
@@ -123,13 +124,11 @@
 
 #let ending-content(conclusion: none, achievement: none, acknowledgement: none) = {
   if conclusion != none {
-
     conclusion-page[
       #conclusion
     ]
 
     pagebreak()
-
   }
 
   bibliography-page()
@@ -163,8 +162,8 @@
   keywords-en: (),
   figure-options: (:),
   bibliography: none,
-  conclusion: none, 
-  achievement: none, 
+  conclusion: none,
+  achievement: none,
   acknowledgement: none,
   digital-signature-option: (:),
 ) = {
@@ -204,10 +203,10 @@
     first-line-indent: (
       amount: 2em,
       all: true,
-    ), 
-    leading: leading, 
-    justify: true, 
-    spacing: spacing
+    ),
+    leading: leading,
+    justify: true,
+    spacing: spacing,
   )
 
   set text(font: 字体.宋体, size: 字号.小四)
@@ -221,16 +220,25 @@
   }
 
   if abstract-en != none {
-    abstract-en-page(keywords: keywords-en, par-leading: 0.608em, par-spacing: 0.608em, text-tracking: 0.2pt, text-spacing: 4.76pt)[
+    abstract-en-page(
+      keywords: keywords-en,
+      par-leading: 0.608em,
+      par-spacing: 0.608em,
+      text-tracking: 0.2pt,
+      text-spacing: 4.76pt,
+    )[
       #abstract-en
     ]
   }
 
   outline-page(par-leading: 0.717em)
 
-  figure-options = figure-options + (
-    extra-kinds: (),
-    extra-prefixes: (:),
+  figure-options = (
+    figure-options
+      + (
+        extra-kinds: (),
+        extra-prefixes: (:),
+      )
   )
 
   show: main.with(figure-options: figure-options)
@@ -242,7 +250,6 @@
   ending-content(
     conclusion: conclusion,
     achievement: achievement,
-    acknowledgement: acknowledgement
+    acknowledgement: acknowledgement,
   )
-
 }

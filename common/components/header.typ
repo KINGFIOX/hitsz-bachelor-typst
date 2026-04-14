@@ -1,5 +1,5 @@
 #import "../theme/type.typ": 字体, 字号
-#import "../config/constants.typ": page-margins, distance-to-the-edges
+#import "../config/constants.typ": distance-to-the-edges, page-margins
 #import "../utils/states.typ": default-header-text-state
 
 #let use-hit-header(header-text: none, content) = context {

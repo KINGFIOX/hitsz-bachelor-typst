@@ -17,7 +17,7 @@
   it,
   above: 1.144em,
   below: 0.916em,
-  ) = {
+) = {
   set align(center)
   set text(font: 字体.黑体, size: 字号.小二, weight: "regular")
   set block(inset: (top: above, bottom: below))
@@ -28,7 +28,7 @@
   it,
   below: auto,
   above: auto,
-  ) = {
+) = {
   // [#below]
   show: heading-level-1-style.with(below: below, above: above)
   pagebreak(weak: true)
@@ -41,21 +41,22 @@
 
 #let use-heading-preface(
   content,
-  heading-above: (1.144em, ),
-  heading-below: (0.916em, ),
-  ) = {
-
-  show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(heading-below, 1))
+  heading-above: (1.144em,),
+  heading-below: (0.916em,),
+) = {
+  show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
+    heading-below,
+    1,
+  ))
 
   content
 }
 
 #let use-heading-main(
   content,
-  heading-above: (1.144em, 0.687em, 0.736em, 0.858em, ),
-  heading-below: (0.916em, 0.687em, 0.736em, 0.858em, ),
-  ) = {
-
+  heading-above: (1.144em, 0.687em, 0.736em, 0.858em),
+  heading-below: (0.916em, 0.687em, 0.736em, 0.858em),
+) = {
   set heading(numbering: numbly(
     "第{1:1}章   ",
     "{1}.{2}   ",
@@ -64,7 +65,10 @@
     "{1}.{2}.{3}.{4}.{5}   ",
   ))
 
-  show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(heading-below, 1))
+  show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
+    heading-below,
+    1,
+  ))
   show heading.where(level: 2): it => {
     set text(font: 字体.黑体, size: 字号.小三, weight: "regular")
     set block(above: array-at(heading-above, 2), below: array-at(heading-below, 2))
@@ -76,30 +80,32 @@
     it
   }
   show heading: it => {
-      if it.level > 3 {
-        set text(font: 字体.黑体, size: 字号.小四, weight: "regular")
-        set block(above: array-at(heading-above, it.level), below: array-at(heading-below, it.level))
-        it
-      } else {
-        it
-      }
+    if it.level > 3 {
+      set text(font: 字体.黑体, size: 字号.小四, weight: "regular")
+      set block(above: array-at(heading-above, it.level), below: array-at(heading-below, it.level))
+      it
+    } else {
+      it
+    }
   }
   content
 }
 
 #let use-heading-end(
   content,
-  heading-above: (1.144em, ),
-  heading-below: (0.916em, ),
-  ) = {
-
-  show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(heading-below, 1))
+  heading-above: (1.144em,),
+  heading-below: (0.916em,),
+) = {
+  show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
+    heading-below,
+    1,
+  ))
 
   content
 }
 
 #let u_ = context {
- box(width: 1fr, stroke: (bottom: underline.stroke), baseline: underline.offset -.25em, outset: (y:0.25em))
+  box(width: 1fr, stroke: (bottom: underline.stroke), baseline: underline.offset - .25em, outset: (y: 0.25em))
 }
 
 // 占满全宽度的居中下划线：[___a̲b̲c̲___]

@@ -44,7 +44,6 @@
   date-array: (),
   date-offsets: (),
   show-declaration-of-originality-page-number: true,
-
   // scanned-copy mode
   scanned-copy: [ ],
 )

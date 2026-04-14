@@ -1,12 +1,13 @@
 #import "../../../common/theme/type.typ": 字体, 字号
 #import "../../../common/components/typography.typ": indent
 #import "../../../common/components/typography.typ": heading-level-1-style
-#import "../../../common/utils/states.typ": thesis-info-state, special-chapter-titles-state, digital-signature-option-state
+#import "../../../common/utils/states.typ": (
+  digital-signature-option-state, special-chapter-titles-state, thesis-info-state,
+)
 #import "../../../common/config/constants.typ": e-digital-signature-mode
 #import "../../../common/components/digital-signature.typ": use-digital-signature
 
 #let declaration-of-originality() = context {
-  
   show: use-digital-signature
 
   let special-chapter-titles = special-chapter-titles-state.get()
@@ -54,7 +55,7 @@
 
   grid(
     columns: (1fr, 1fr),
-    rows: (auto),
+    rows: auto,
     pad(left: 6.4em)[
 
       #text[作者签名：]
@@ -90,7 +91,7 @@
 
   grid(
     columns: (1fr, 1fr),
-    rows: (auto),
+    rows: auto,
     pad(left: 5.9em)[
 
       #text[作者签名：]
@@ -105,7 +106,7 @@
 
   grid(
     columns: (1fr, 1fr),
-    rows: (auto),
+    rows: auto,
     pad(left: 5.9em)[
 
       #text[导师签名：]

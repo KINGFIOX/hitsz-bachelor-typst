@@ -11,7 +11,7 @@
   #show: use-hit-header.with(
     header-text: if use-same-header-text {
       special-chapter-titles.结论
-    }
+    },
   )
 
   #heading(special-chapter-titles.结论, level: 1, numbering: none)

@@ -1,4 +1,4 @@
-/* 
+/*
 旧版三线表已弃用，推荐使用新版原生写法
 #table(
   columns: (1fr, 1fr, 1fr, 1fr),
@@ -50,9 +50,11 @@
       #grid(
         columns: header-values.len(),
         row-gutter: 0.25em,
-        ..content-values.map(line-content => {
-          (..line-content.map(content => table-cell(content: content)).flatten(),)
-        }).flatten(),
+        ..content-values
+          .map(line-content => {
+            (..line-content.map(content => table-cell(content: content)).flatten(),)
+          })
+          .flatten(),
       )
     ]
     v(0em, weak: true)

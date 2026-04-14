@@ -11,13 +11,12 @@
   par-spacing: 1.2em,
   text-tracking: 0pt,
 ) = context {
-
   let special-chapter-titles = special-chapter-titles-state.get()
 
   show: use-hit-header.with(
     header-text: if use-same-header-text {
       special-chapter-titles.摘要
-    }
+    },
   )
 
   heading(special-chapter-titles.摘要, level: 1)
@@ -50,13 +49,12 @@
   text-tracking: 0pt,
   text-spacing: 100% + 0pt,
 ) = context {
-
   let special-chapter-titles = special-chapter-titles-state.get()
 
   show: use-hit-header.with(
     header-text: if use-same-header-text {
       special-chapter-titles.Abstract
-    }
+    },
   )
 
   heading(special-chapter-titles.Abstract, level: 1)

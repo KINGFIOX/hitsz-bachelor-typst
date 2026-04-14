@@ -12,7 +12,7 @@
   #show: use-hit-header.with(
     header-text: if use-same-header-text {
       special-chapter-titles.致谢
-    }
+    },
   )
 
   #heading(special-chapter-titles.致谢, level: 1, numbering: none)

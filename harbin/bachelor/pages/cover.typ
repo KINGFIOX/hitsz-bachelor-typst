@@ -16,7 +16,7 @@
   month: current-date.month(),
   day: current-date.day(),
 ) = {
-    align(center)[
+  align(center)[
 
     #v(50pt)
 
@@ -64,7 +64,7 @@
   month: current-date.month(),
   day: current-date.day(),
 ) = {
-    align(center)[
+  align(center)[
 
     #grid(
       columns: (1fr, 1fr),
@@ -118,21 +118,27 @@
       cover-info-key(text(tracking: get-tracking-by-characters-count(3))[本科生]),
       cover-info-colon[：],
       cover-info-value(author),
+
       cover-info-key(text(tracking: get-tracking-by-characters-count(2))[学号]),
       cover-info-colon[：],
       cover-info-value(student-id),
+
       cover-info-key(text(tracking: get-tracking-by-characters-count(4))[指导教师]),
       cover-info-colon[：],
       cover-info-value(supervisor),
+
       cover-info-key(text(tracking: get-tracking-by-characters-count(2))[专业]),
       cover-info-colon[：],
       cover-info-value(profession),
+
       cover-info-key(text(tracking: get-tracking-by-characters-count(2))[学院]),
       cover-info-colon[：],
       cover-info-value(college),
+
       cover-info-key(text(tracking: get-tracking-by-characters-count(4))[答辩日期]),
       cover-info-colon[：],
       cover-info-value([#[#year]年#[#month]月]),
+
       cover-info-key(text(tracking: get-tracking-by-characters-count(2))[学校]),
       cover-info-colon[：],
       cover-info-value(institute),

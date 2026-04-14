@@ -11,7 +11,7 @@
 
 #let main-format-heading(it: none, font: none, size: none, weight: "regular") = {
   set text(font: font, size: size)
-    // v(0.5em)
+  // v(0.5em)
   text(weight: weight)[
     #counter(heading).display()
     #if it != none {

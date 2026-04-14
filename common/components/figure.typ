@@ -52,7 +52,7 @@
   ]
 }
 
-#import "@preview/codelst:2.0.2": sourcecode, code-frame
+#import "@preview/codelst:2.0.2": code-frame, sourcecode
 #import "../theme/type.typ": 字体, 字号
 
 #let codelst-sourcecode = sourcecode
@@ -80,7 +80,7 @@
 
 //////// 双语 figure ////////
 
-#let bilingual-figure-caption = (it) => context [
+#let bilingual-figure-caption = it => context [
   // #repr(it)
   // #repr(it.fields())
   #block(inset: 0.5em, width: 100%)[
@@ -92,7 +92,9 @@
     #let body = it.body
     #[#fields.supplement #[#heading-counter-value]-#[#fig-counter-value] #[#h(0.5em)] #body]
 
-    #let before-bilingual-figure-metadata-array = query(metadata.where(label: <bilingual-figure-metadata>).before(here()))
+    #let before-bilingual-figure-metadata-array = query(
+      metadata.where(label: <bilingual-figure-metadata>).before(here()),
+    )
     #let before-last-bilingual-figure-metadata = none
     #if before-bilingual-figure-metadata-array.len() != 0 {
       before-last-bilingual-figure-metadata = before-bilingual-figure-metadata-array.last()
@@ -104,7 +106,11 @@
       after-first-bilingual-figure-metadata = after-bilingual-figure-metadata-array.first()
       // [#after-bilingual-figure-metadata-value]
     }
-    #if before-last-bilingual-figure-metadata != none and after-first-bilingual-figure-metadata != none and before-last-bilingual-figure-metadata.value == after-first-bilingual-figure-metadata.value [
+    #if (
+      before-last-bilingual-figure-metadata != none
+        and after-first-bilingual-figure-metadata != none
+        and before-last-bilingual-figure-metadata.value == after-first-bilingual-figure-metadata.value
+    ) [
       #let supplement-foreign = before-last-bilingual-figure-metadata.value.supplement-foreign
       #let caption-foreign-body = before-last-bilingual-figure-metadata.value.caption-foreign
       #[#supplement-foreign #[#heading-counter-value]-#[#fig-counter-value] #[#h(0.5em)] #caption-foreign-body]
@@ -126,10 +132,9 @@
   supplement: auto,
   label-name: none,
 ) => context {
-
   bilingual-figure-counter.step()
 
-  let get-supplement-default-by-kind = (kind) => {
+  let get-supplement-default-by-kind = kind => {
     if kind == image {
       (
         zh: [图],
@@ -166,7 +171,7 @@
 
   if supplement == auto or type(supplement) == dictionary {
     let supplement-default = get-supplement-default-by-kind(internal-kind)
-    let supplement-blingual = if supplement == auto {supplement-default} else  {supplement-default + supplement}
+    let supplement-blingual = if supplement == auto { supplement-default } else { supplement-default + supplement }
     supplement-native = supplement-blingual.zh
     supplement-foreign = supplement-blingual.en
   } else {
@@ -201,16 +206,16 @@
     ]
 
     #let internal-figure = figure(
-        body, 
-        caption: caption-native, 
-        gap: gap,
-        kind: kind,
-        numbering: numbering,
-        outlined: outlined,
-        placement: placement,
-        scope: scope,
-        supplement: supplement-native
-      )
+      body,
+      caption: caption-native,
+      gap: gap,
+      kind: kind,
+      numbering: numbering,
+      outlined: outlined,
+      placement: placement,
+      scope: scope,
+      supplement: supplement-native,
+    )
 
     #if label-name != none [
       #internal-figure #label(label-name)
