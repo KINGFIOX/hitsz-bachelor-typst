@@ -26,13 +26,10 @@
           version = "0.1.0";
           src = ./.;
 
-          packages =
-            with pkgs;
-            [
-              typst
-              win10Fonts
-            ]
-            ;
+          nativeBuildInputs = [
+            pkgs.typst
+            win10Fonts
+          ];
 
           dontConfigure = true;
           dontFixup = true;
@@ -40,9 +37,12 @@
           buildPhase = ''
             runHook preBuild
             export HOME="$TMPDIR"
-            export TYPST_FONT_PATHS="${win10Fonts}/share/fonts/truetype"
-            unset SOURCE_DATE_EPOCH # Let Typst use real system time instead of reproducible-build epoch.
-            typst compile --root . main/bachelor.typ bachelor.pdf
+            build_timestamp="''${SOURCE_DATE_EPOCH:-$(date +%s)}"
+            typst compile \
+              --root . \
+              --creation-timestamp "$build_timestamp" \
+              --ignore-system-fonts --font-path ${win10Fonts}/share/fonts/truetype \
+              main/bachelor.typ bachelor.pdf
             runHook postBuild
           '';
 
