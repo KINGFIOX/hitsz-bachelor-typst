@@ -45,7 +45,11 @@
   </locale>
   <!-- 引用日期 -->
   <macro name="accessed-date">
-    <date variable="accessed" form="numeric" prefix="[" suffix="]"/>
+    <choose>
+      <if type="dataset post post-weblog software webpage" match="any">
+        <date variable="accessed" form="numeric" prefix="[" suffix="]"/>
+      </if>
+    </choose>
   </macro>
   <!-- 主要责任者 -->
   <macro name="author">
@@ -164,7 +168,7 @@
           <if variable="publisher page" type="book chapter paper-conference thesis" match="any">
             <text macro="issued-year"/>
           </if>
-          <else-if variable="URL DOI" match="none">
+          <else-if type="dataset post post-weblog software webpage" match="none">
             <text macro="issued-year"/>
           </else-if>
         </choose>
@@ -173,12 +177,8 @@
     </group>
     <choose>
       <!-- 纯电子资源显示“更新或修改日期” -->
-      <if variable="publisher page" type="book chapter paper-conference thesis" match="none">
-        <choose>
-          <if variable="URL DOI" match="any">
-            <text macro="issued-date" prefix="(" suffix=")"/>
-          </if>
-        </choose>
+      <if type="dataset post post-weblog software webpage" match="any">
+        <text macro="issued-date" prefix="(" suffix=")"/>
       </if>
     </choose>
     <text macro="accessed-date"/>
@@ -305,7 +305,7 @@
         </else>
       </choose>
       <choose>
-        <if variable="URL DOI" match="any">
+        <if type="dataset post post-weblog software webpage" variable="URL" match="all">
           <text value="OL"/>
         </if>
       </choose>
@@ -313,10 +313,11 @@
   </macro>
   <!-- 获取和访问路径以及 DOI -->
   <macro name="url-doi">
-    <group delimiter=". ">
-      <text variable="URL"/>
-      <text variable="DOI" prefix="DOI:"/>
-    </group>
+    <choose>
+      <if type="dataset post post-weblog software webpage" match="any">
+        <text variable="URL"/>
+      </if>
+    </choose>
   </macro>
   <!-- 连续出版物的年卷期 -->
   <macro name="year-volume-issue">
@@ -365,8 +366,7 @@
       <text macro="title"/>
       <text macro="year-volume-issue"/>
       <text macro="publishing"/>
-      <text variable="URL"/>
-      <text variable="DOI" prefix="DOI:"/>
+      <text macro="url-doi"/>
     </group>
   </macro>
   <!-- 连续出版物中的析出文献 -->
