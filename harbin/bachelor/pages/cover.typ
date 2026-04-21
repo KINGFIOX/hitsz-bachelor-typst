@@ -70,7 +70,7 @@
       columns: (1fr, 1fr),
       align(left)[
         #block(inset: (top: 6pt, left: 40pt))[
-          #text(size: 字号.小四, font: 字体.宋体)[□毕业论文 #h(1em) □毕业设计]
+          #text(size: 字号.小四, font: 字体.宋体)[#text(font: "Segoe UI Symbol")[☑]毕业论文 #h(1em) #text(font: "Segoe UI Symbol")[□]毕业设计]
         ]
       ],
       align(right)[
