@@ -60,6 +60,7 @@
             [
               typst
               win10Fonts
+              nodejs_22 # used for mcp
             ]
             ;
 
