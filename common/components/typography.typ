@@ -71,19 +71,31 @@
   ))
   show heading.where(level: 2): it => {
     set text(font: 字体.黑体, size: 字号.小三, weight: "regular")
-    set block(above: array-at(heading-above, 2), below: array-at(heading-below, 2))
-    it
+    block(
+      above: array-at(heading-above, 2),
+      below: array-at(heading-below, 2),
+      sticky: true,
+      it,
+    )
   }
   show heading.where(level: 3): it => {
     set text(font: 字体.黑体, size: 字号.四号, weight: "regular")
-    set block(above: array-at(heading-above, 3), below: array-at(heading-below, 3))
-    it
+    block(
+      above: array-at(heading-above, 3),
+      below: array-at(heading-below, 3),
+      sticky: true,
+      it,
+    )
   }
   show heading: it => {
     if it.level > 3 {
       set text(font: 字体.黑体, size: 字号.小四, weight: "regular")
-      set block(above: array-at(heading-above, it.level), below: array-at(heading-below, it.level))
-      it
+      block(
+        above: array-at(heading-above, it.level),
+        below: array-at(heading-below, it.level),
+        sticky: true,
+        it,
+      )
     } else {
       it
     }
