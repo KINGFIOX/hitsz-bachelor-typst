@@ -37,10 +37,8 @@
           buildPhase = ''
             runHook preBuild
             export HOME="$TMPDIR"
-            build_timestamp="''${SOURCE_DATE_EPOCH:-$(date +%s)}"
             typst compile \
               --root . \
-              --creation-timestamp "$build_timestamp" \
               --ignore-system-fonts --font-path ${win10Fonts}/share/fonts/truetype \
               main/bachelor.typ bachelor.pdf
             runHook postBuild
@@ -65,7 +63,6 @@
             ;
 
           shellHook = ''
-            unset SOURCE_DATE_EPOCH
             export TYPST_FONT_PATHS="${win10Fonts}/share/fonts/truetype"
           '';
         };

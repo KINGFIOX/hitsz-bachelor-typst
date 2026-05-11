@@ -114,10 +114,15 @@
       (dx: 11.7em, dy: 47.2em),
     ),
     // 日期及其偏移
+    // date-array: (
+    //   (datetime.today().year(), datetime.today().month(), datetime.today().day()),
+    //   (datetime.today().year(), datetime.today().month(), datetime.today().day()),
+    //   (datetime.today().year(), datetime.today().month(), datetime.today().day()),
+    // ),
     date-array: (
-      (datetime.today().year(), datetime.today().month(), datetime.today().day()),
-      (datetime.today().year(), datetime.today().month(), datetime.today().day()),
-      (datetime.today().year(), datetime.today().month(), datetime.today().day()),
+      (2026, 5, 1),
+      (2026, 5, 1),
+      (2026, 5, 1),
     ),
     date-offsets: (
       (
