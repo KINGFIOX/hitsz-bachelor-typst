@@ -195,9 +195,13 @@
 
   cover()
 
-  // Word 模板: 正文 1.25 倍行距，文档网格行距 20.6pt
-  // leading ≈ 网格行距 - 字号高度 = 20.6pt - 12pt = 8.6pt ≈ 0.717em
-  let leading = 0.717em
+  // Word 模板: 正文 1.25 倍行距，文档网格行距 20.6pt（baseline-to-baseline）。
+  // Typst 中 baseline_distance ≈ 自然行盒高度 + leading；自然行盒由
+  // top-edge / bottom-edge 决定，默认是 cap-height → baseline，
+  // 经实测在小四混排（Times New Roman + SimSun）下约为 8.2pt（≈ 0.683em），
+  // 因此 leading ≈ 20.6pt - 8.2pt ≈ 12.4pt ≈ 1.033em。
+  // 纯英文（Times New Roman）下自然行盒略小，约为 7.9pt，需要 leading ≈ 12.7pt ≈ 1.058em。
+  let leading = 1.033em
   let spacing = leading
   set par(
     first-line-indent: (
@@ -214,7 +218,7 @@
   show: preface
 
   if abstract-cn != none {
-    abstract-cn-page(keywords: keywords-cn, par-leading: 0.717em, par-spacing: 0.717em, text-tracking: 0.72pt)[
+    abstract-cn-page(keywords: keywords-cn, par-leading: 1.033em, par-spacing: 1.033em, text-tracking: 0.72pt)[
       #abstract-cn
     ]
   }
@@ -222,8 +226,8 @@
   if abstract-en != none {
     abstract-en-page(
       keywords: keywords-en,
-      par-leading: 0.608em,
-      par-spacing: 0.608em,
+      par-leading: 1.058em,
+      par-spacing: 1.058em,
       text-tracking: 0.2pt,
       text-spacing: 4.76pt,
     )[
@@ -231,7 +235,7 @@
     ]
   }
 
-  outline-page(par-leading: 0.717em)
+  outline-page(par-leading: 1.033em)
 
   figure-options = (
     figure-options
