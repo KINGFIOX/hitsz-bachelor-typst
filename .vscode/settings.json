@@ -1,0 +1,16 @@
+{
+  // Pin tinymist preview to the same fonts as `nix build`.
+  //
+  // `TYPST_FONT_PATHS` is exported by flake.nix's devShell shellHook and
+  // injected into Cursor by the mkhl.direnv extension (which auto-runs
+  // `.envrc`'s `use flake`). tinymist then expands ${env:...} in fontPaths
+  // before handing the path to the embedded compiler.
+  //
+  // `systemFonts: false` is what actually fixes the preview screenshot:
+  // without it, on macOS tinymist still scans /System/Library/Fonts and
+  // ~/Library/Fonts, finds Chinese/Japanese fonts (Klee, Osaka-Mono,
+  // SimSong, SIL-Hei-Med-Jian, ...) and uses them when SimSun is not
+  // visible, so the preview drifts away from the final PDF.
+  "tinymist.systemFonts": false,
+  "tinymist.fontPaths": ["${env:TYPST_FONT_PATHS}"]
+}

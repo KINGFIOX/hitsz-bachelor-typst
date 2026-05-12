@@ -84,6 +84,16 @@
             pkgs.nodejs_22 # used for mcp
           ];
 
+          # `TYPST_FONT_PATHS` is consumed by:
+          #   - `typst` CLI invocations from the terminal
+          #   - tinymist preview, via `.vscode/settings.json`'s
+          #     `tinymist.fontPaths: ["${"$"}{env:TYPST_FONT_PATHS}"]`.
+          #     This works because the mkhl.direnv extension auto-loads
+          #     `.envrc` (`use flake`) on workspace open and injects this
+          #     variable into the tinymist LSP process; tinymist then
+          #     substitutes `${"$"}{env:...}` before passing paths to the
+          #     compiler. So preview, terminal `typst`, and `nix build` all
+          #     resolve fonts from the same nix-store directory.
           shellHook = ''
             export TYPST_IGNORE_SYSTEM_FONTS=true
             export TYPST_FONT_PATHS="${typstFontPath}"
