@@ -1,0 +1,120 @@
+<mxfile host="65bd71144e">
+    <diagram id="7B3PSGFCh-32onWQU0OL" name="Page-1">
+        <mxGraphModel dx="1366" dy="786" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1200" pageHeight="700" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="passthrough" value="Passthrough" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="60" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="ssSetup" value="SS_Setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="240" y="60" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="ssAccess" value="SS_Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="60" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="tx1Setup" value="TX1_Setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="60" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="tx1Access" value="TX1_Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="60" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="tx0Setup" value="TX0_Setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="170" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="tx0Access" value="TX0_Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="170" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="ctrlSetup" value="Ctrl_Setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="170" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="ctrlAccess" value="Ctrl_Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+                    <mxGeometry x="240" y="170" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="pollSetup" value="Poll_Setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="170" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="pollAccess" value="Poll_Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="280" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="rxSetup" value="RX_Setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+                    <mxGeometry x="240" y="280" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="rxAccess" value="RX_Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="280" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="deselSetup" value="DeSSel_Setup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="280" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="deselAccess" value="DeSSel_Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="280" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="respond" value="Respond" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="390" width="170" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" value="XIP setup &amp; read&#10;capture flashAddr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="passthrough" target="ssSetup" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" value="issue SS=1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="ssSetup" target="ssAccess" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" value="out.pready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="ssAccess" target="tx1Setup" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="write TX1 = cmd|addr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="tx1Setup" target="tx1Access" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" value="out.pready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="tx1Access" target="tx0Setup" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" value="write TX0 = 0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="tx0Setup" target="tx0Access" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" value="out.pready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="tx0Access" target="ctrlSetup" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" value="write CTRL=0x2140" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="ctrlSetup" target="ctrlAccess" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" value="out.pready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="ctrlAccess" target="pollSetup" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" value="read CTRL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="pollSetup" target="pollAccess" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" value="out.pready &amp;&amp; GO=1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;exitX=0;exitY=0.5;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitDx=0;exitDy=0;" parent="1" source="pollAccess" target="pollSetup" edge="1">
+                    <mxGeometry x="0.1059" y="20" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="10" y="304"/>
+                            <mxPoint x="10" y="194"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e14" value="out.pready &amp;&amp; GO=0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;exitX=1;exitY=0.65;entryX=0;entryY=0.5;" parent="1" source="pollAccess" target="rxSetup" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" value="read RX0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="rxSetup" target="rxAccess" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" value="out.pready&#10;capture rxData" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="rxAccess" target="deselSetup" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e17" value="write SS=0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="deselSetup" target="deselAccess" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e18" value="out.pready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="deselAccess" target="respond" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e19" value="pready=1&#10;prdata=byteSwap(rxData)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="respond" target="passthrough" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-90" y="414"/>
+                            <mxPoint x="-90" y="84"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
