@@ -1,0 +1,57 @@
+<mxfile host="65bd71144e">
+    <diagram id="vOUDcmV6e9RYjRetEdhq" name="Page-1">
+        <mxGraphModel dx="1486" dy="1209" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="tb" value="&lt;b&gt;tb_mem_test&lt;/b&gt;&lt;br&gt;(SEQ)&lt;br&gt;&lt;br&gt;Sequencer / 测试激励" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d9e2f3;strokeColor=#333333;align=center;verticalAlign=middle;fontSize=20;" parent="1" vertex="1">
+                    <mxGeometry y="220" width="220" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="drv" value="&lt;b&gt;tb_axi4_driver&lt;/b&gt;&lt;br&gt;(DRIVER)&lt;br&gt;&lt;br&gt;AXI4 总线驱动" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d9ead3;strokeColor=#333333;align=center;verticalAlign=middle;fontSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="220" width="220" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="dut" value="&lt;b&gt;sdram_axi&lt;/b&gt;&lt;br&gt;(DUT)&lt;br&gt;&lt;br&gt;SDRAM 控制器" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f9cb9c;strokeColor=#333333;strokeWidth=3;align=center;verticalAlign=middle;fontSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="800" y="220" width="220" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="mem" value="&lt;b&gt;tb_sdram_mem&lt;/b&gt;&lt;br&gt;(TB_MEM)&lt;br&gt;&lt;br&gt;SDRAM 仿真模型" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d9d2e9;strokeColor=#333333;align=center;verticalAlign=middle;fontSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="1200" y="220" width="220" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_tb_drv" value="tb_driver_api*" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;dashed=1;strokeWidth=3;fontSize=20;" parent="1" source="tb" target="drv" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_drv_dut_aw" value="axi_m&#10;(axi4_master)&#10;AW/W/AR channels" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;strokeWidth=8;strokeColor=#3d85c6;fontSize=18;" parent="1" source="drv" target="dut" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="770" y="365"/>
+                            <mxPoint x="770" y="365"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_dut_drv_br" value="axi_s&#10;(axi4_slave)&#10;B/R channels" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;strokeWidth=8;strokeColor=#3d85c6;fontSize=18;" parent="1" source="dut" target="drv" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="630" y="530"/>
+                            <mxPoint x="630" y="530"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_dut_mem_m" value="sdram_io_m&#10;(sdram_io_master)" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;strokeWidth=8;strokeColor=#e69138;fontSize=18;" parent="1" source="dut" target="mem" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1180" y="365"/>
+                            <mxPoint x="1180" y="365"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_mem_dut_s" value="sdram_io_s&#10;(sdram_io_slave)" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;strokeWidth=8;strokeColor=#e69138;fontSize=18;" parent="1" source="mem" target="dut" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1190" y="530"/>
+                            <mxPoint x="1190" y="530"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
