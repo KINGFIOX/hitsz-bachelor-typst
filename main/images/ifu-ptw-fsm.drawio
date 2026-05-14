@@ -1,0 +1,76 @@
+<mxfile host="65bd71144e">
+    <diagram id="0cYqlLkk5p51HEr6Kz7O" name="Page-1">
+        <mxGraphModel dx="966" dy="786" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="620" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="idle" value="idle" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="240" width="120" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="req" value="req" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="290" y="40" width="120" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="wait" value="waitResp" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="240" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="drain" value="drain" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="240" width="120" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" value="tlb_miss" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;exitX=0;exitY=0;exitDx=0;exitDy=0;" parent="1" source="idle" target="req" edge="1">
+                    <mxGeometry x="0.3809" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="78" y="75"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e2" value="ptw.req.fire&#10;(latch vpn)" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="req" target="wait" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="392" y="200"/>
+                            <mxPoint x="390" y="200"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e3" value="ptw.resp.valid" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;" parent="1" source="wait" target="idle" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="260" y="275"/>
+                            <mxPoint x="260" y="275"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e4" value="squash &amp;&amp;&#10;going inflight" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="req" target="drain" edge="1">
+                    <mxGeometry x="-0.3253" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="660" y="75"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e5" value="squash &amp;&amp;&#10;no resp yet" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;" parent="1" source="wait" target="drain" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="ptw.resp.valid&#10;(drop silently)" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;entryX=0;entryY=1;entryDx=0;entryDy=0;" parent="1" source="drain" target="idle" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="660" y="370"/>
+                            <mxPoint x="80" y="370"/>
+                            <mxPoint x="80" y="300"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e7" value="squash &amp;&amp;&#10;!going inflight" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;exitY=1;entryY=0;entryX=0.5;entryDx=0;entryDy=0;exitX=0;exitDx=0;exitDy=0;" parent="1" source="req" target="idle" edge="1">
+                    <mxGeometry x="0.146" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="270" y="100"/>
+                            <mxPoint x="270" y="180"/>
+                            <mxPoint x="120" y="180"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
