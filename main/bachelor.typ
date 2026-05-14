@@ -109,7 +109,7 @@
       (dx: 13em, dy: 44.5em),
     ),
     // 导师电子签名图片及其偏移
-    supervisor-signature: [ #image("images/supervisor-signature.png", height: 3.5em) ],
+    supervisor-signature: [ #image("images/xuerui.png", height: 3.5em) ],
     supervisor-signature-offsets: (
       (dx: 11.7em, dy: 47.2em),
     ),
