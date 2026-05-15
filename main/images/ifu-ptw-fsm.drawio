@@ -27,8 +27,7 @@
                 <mxCell id="e2" value="ptw.req.fire&#10;(latch vpn)" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="req" target="wait" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="392" y="200"/>
-                            <mxPoint x="390" y="200"/>
+                            <mxPoint x="390" y="100"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -51,13 +50,13 @@
                 <mxCell id="e5" value="squash &amp;&amp;&#10;no resp yet" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;" parent="1" source="wait" target="drain" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e6" value="ptw.resp.valid&#10;(drop silently)" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;entryX=0;entryY=1;entryDx=0;entryDy=0;" parent="1" source="drain" target="idle" edge="1">
+                <mxCell id="e6" value="ptw.resp.valid&#10;(drop silently)" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;" parent="1" source="drain" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
                             <mxPoint x="660" y="370"/>
-                            <mxPoint x="80" y="370"/>
-                            <mxPoint x="80" y="300"/>
+                            <mxPoint x="120" y="370"/>
                         </Array>
+                        <mxPoint x="120" y="310" as="targetPoint"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="e7" value="squash &amp;&amp;&#10;!going inflight" style=" endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;dashed=1;exitY=1;entryY=0;entryX=0.5;entryDx=0;entryDy=0;exitX=0;exitDx=0;exitDy=0;" parent="1" source="req" target="idle" edge="1">
