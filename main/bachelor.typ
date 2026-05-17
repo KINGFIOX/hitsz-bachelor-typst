@@ -1377,9 +1377,9 @@ $ "Divisor" = "system clock frequency" / ("16" times "desired baud rate") $
 
 为覆盖不同维度的处理器行为，本实验选取的三组基准程序在设计思路上互为补充，分别代表"算法异质性"、"系统编程典型语句"与"嵌入式工业标准"三类不同的评测视角：
 
-- *MicroBench* #cite(<microbench2024>)：南京大学体系结构教学组设计的基准测试集，包含 10 个功能各异的子测试——`qsort` 快速排序、`queen` 位运算实现的 n 皇后、`bf` Brainf\*\*k 解释器、`fib` 矩阵法 Fibonacci、`sieve` Eratosthenes 筛法、`15pz` A\* 求解 4×4 数码问题、`dinic` 二分图最大流、`lzip` 压缩、`ssort` 后缀排序与 `md5` 哈希。这些子测试覆盖排序、回溯搜索、解释器、动态规划、图算法、压缩与密码学计算等差异显著的算法形态，可暴露处理器在不同控制流与访存模式下的稳态行为。MicroBench 提供 `test`/`train`/`ref`/`huge` 四档输入规模（动态指令数约 300K / 60M / 2B / 50B），选用 `train` 档是因为运行时间适中且能合理展示本设计的性能。
-- *Dhrystone* #cite(<weicker1984dhrystone>)：由 Weicker 于 1984 年提出的综合整数基准，无浮点（本设计不支持浮点）、无 I/O、不依赖操作系统。主循环由若干典型系统编程语句构成，包括结构体字段读写、字符串库函数 `strcmp`/`strcpy`、过程调用与条件分支，旨在反映通用整数处理的指令混合与访存密度。本实验使用 Dhrystone v2.2。
-- *CoreMark* #cite(<coremark2009>)：EEMBC 于 2009 年发布的嵌入式行业标准基准，由链表插入/删除/查找、矩阵乘法/反转与状态机 CRC 三类核心算法组成。EEMBC 通过算法间的数据依赖与运行时种子参数显著抑制了编译器的常量折叠、死代码消除等优化空间，使评分难以通过单纯的编译技巧"作弊"，从而较 Dhrystone 更能反映核心微架构的真实性能。
+- MicroBench #cite(<microbench2024>)：南京大学体系结构教学组设计的基准测试集，包含 10 个功能各异的子测试——`qsort` 快速排序、`queen` 位运算实现的 n 皇后、`bf` Brainf\*\*k 解释器、`fib` 矩阵法 Fibonacci、`sieve` Eratosthenes 筛法、`15pz` A\* 求解 4×4 数码问题、`dinic` 二分图最大流、`lzip` 压缩、`ssort` 后缀排序与 `md5` 哈希。这些子测试覆盖排序、回溯搜索、解释器、动态规划、图算法、压缩与密码学计算等差异显著的算法形态，可暴露处理器在不同控制流与访存模式下的稳态行为。MicroBench 提供 `test`/`train`/`ref`/`huge` 四档输入规模（动态指令数约 300K / 60M / 2B / 50B），选用 `train` 档是因为运行时间适中且能合理展示本设计的性能。
+- Dhrystone #cite(<weicker1984dhrystone>)：由 Weicker 于 1984 年提出的综合整数基准，无浮点（本设计不支持浮点）、无 I/O、不依赖操作系统。主循环由若干典型系统编程语句构成，包括结构体字段读写、字符串库函数 `strcmp`/`strcpy`、过程调用与条件分支，旨在反映通用整数处理的指令混合与访存密度。本实验使用 Dhrystone v2.2。
+- CoreMark #cite(<coremark2009>)：EEMBC 于 2009 年发布的嵌入式行业标准基准，由链表插入/删除/查找、矩阵乘法/反转与状态机 CRC 三类核心算法组成。EEMBC 通过算法间的数据依赖与运行时种子参数显著抑制了编译器的常量折叠、死代码消除等优化空间，使评分难以通过单纯的编译技巧"作弊"，从而较 Dhrystone 更能反映核心微架构的真实性能。
 
 === 基准程序配置
 
@@ -1540,7 +1540,7 @@ DCache 的平均缺失代价（21–35 周期）整体高于 ICache（约 20–2
 
 基于 @tab:perf-overview 中的周期数，可进一步换算出若干行业通行的性能指标，便于与商用处理器横向比较。
 
-*DMIPS 与 DMIPS/MHz 的含义。* Dhrystone MIPS（DMIPS）以 DEC VAX 11/780 在 Dhrystone 基准上达到的 1757 Dhrystones/sec 作为 1 MIPS 的参考点，即
+Dhrystone MIPS（DMIPS）以 DEC VAX 11/780 #cite(<strecker1978vax11780>) 在 Dhrystone 基准上达到的 1757 Dhrystones/sec 作为 1 MIPS(million instruction per second) 的参考点，即
 
 $
   "DMIPS" = ("Dhrystones per second") / 1757
@@ -1558,7 +1558,7 @@ $
   "CoreMark/MHz" = ("iterations" times 10^6) / "cycles"
 $
 
-按上述公式代入 @tab:perf-overview 的数据，得到本处理器的工业性能指标如 @tab:perf-industrial 所示。
+按上述公式代入 @tab:perf-overview 的数据，得到本设计的工业性能指标如 @tab:perf-industrial 所示。
 
 #figure(
   kind: table,
@@ -1575,9 +1575,7 @@ $
   ],
 ) <tab:perf-industrial>
 
-具体地，CoreMark：$200 times 10^6 / 129 thin 901 thin 647 approx 1.540$ CoreMark/MHz。Dhrystone 选用 `NUMBER_OF_RUNS` $= 140 thin 000$，代入：$140 thin 000 times 10^6 / (142 thin 530 thin 258 times 1757) approx 0.559$ DMIPS/MHz。
-
-*与 ARM Cortex-M 系列对照。* 作为参考，ARM 官方 Cortex-M 处理器对照表 #cite(<arm2024cortexm3>) 给出 Cortex-M0 约 0.84 DMIPS/MHz，Cortex-M3/M4 约 1.25 DMIPS/MHz，Cortex-M7 约 2.14 DMIPS/MHz。本实现 Dhrystone 得分约为 0.559 DMIPS/MHz，低于 Cortex-M0 的 0.84，与商用 Cortex-M 系列差距主要来自以下三点：
+与 ARM Cortex-M 系列对照。 作为参考，ARM 官方 Cortex-M 处理器对照表 #cite(<arm2024cortexm3>) 给出 Cortex-M0 约 0.84 DMIPS/MHz，Cortex-M3/M4 约 1.25 DMIPS/MHz，Cortex-M7 约 2.14 DMIPS/MHz。本实现 Dhrystone 得分约为 0.559 DMIPS/MHz，低于 Cortex-M0 的 0.84，与商用 Cortex-M 系列差距主要来自以下三点：
 
 + 稳态 IPC 仍处 0.45 区间——单发射 in-order 流水线 + 前端停顿主导的气泡损失，留下了较大的 IPC 提升空间；
 + 本实验编译选项为 `-O2`，未启用 Cortex-M 系列在 ARM 官方报告中常用的 `-Ofast` 与 PGO 等更激进优化；
