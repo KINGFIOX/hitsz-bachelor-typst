@@ -31,14 +31,14 @@ jobs:
 
       - name: Prepare release file
         if: github.event_name == 'push'
-        run: cp result/bachelor.pdf bachelor-latest.pdf
+        run: cp result/bachelor.pdf bachelor.pdf
 
       - name: Publish GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
+          tag_name: ${{ github.sha }}
           target_commitish: ${{ github.sha }}
           name: Latest Thesis Build
-          files: bachelor-latest.pdf
+          files: bachelor.pdf
           generate_release_notes: true
