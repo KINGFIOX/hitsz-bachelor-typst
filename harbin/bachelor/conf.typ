@@ -59,6 +59,17 @@
   show heading: reset-counters.with(extra-kinds: ("algorithm",) + figure-options.extra-kinds)
   show figure: show-figure.with(
     numbering: "1-1",
+    // i-figured wraps figures and re-attaches a new label that is
+    // prepended with a kind-specific prefix:
+    //   - table -> "tbl:"
+    //   - raw   -> "lst:"
+    //   - <fallback, e.g. image, custom kinds> -> "fig:"
+    // So author labels should be written *without* the kind prefix
+    // (e.g. `<foo>` instead of `<tab:foo>`), and references should use
+    // the i-figured prefix (`@tbl:foo`, `@fig:foo`, `@lst:foo`).
+    // This is the only way cross-references end up using i-figured's
+    // chapter-prefixed numbering (e.g. "表 10-4") instead of Typst's
+    // built-in flat figure counter (e.g. "表 4").
     extra-prefixes: ("algorithm": "algo:") + figure-options.extra-prefixes,
   )
   show figure.where(kind: table): set figure.caption(position: top)
