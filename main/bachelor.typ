@@ -35,7 +35,7 @@
 
     在微架构设计方面，本文实现了前后端解耦的单发射乱序处理器，采用统一物理寄存器的寄存器重命名方案，支持乱序执行与顺序提交，并通过重排序机制实现精确异常；前端分支预测采用 GShare+IJTC+RAS 组合方案。存储层次方面，实现了基于 VIPT 结构且采用 PLRU 替换策略的 ICache 与 DCache，以降低访存开销并兼顾地址转换场景下的访问效率。体系结构支持方面，实现了 M/S/U 三级特权架构、Sv39 虚拟内存机制与中断处理机制，为操作系统运行提供了完整硬件基础。
 
-    为保证设计正确性，本文基于 Chisel、Verilator 与 C++20 构建验证平台，结合差分测试与调试追踪工具对关键模块进行系统验证。在性能评估方面，基于 MicroBench、Dhrystone 与 CoreMark 三组基准程序并结合 RTL 寄存器与 DPI-C 事件的混合性能计数器对处理器进行了多维度定量分析：IPC 达到 0.43–0.56，Dhrystone 成绩为 1.596 DMIPS/MHz、CoreMark 为 1.540 CoreMark/MHz，ICache 命中率 $>$ 99.9%、DCache 命中率 97.5%–99.9%、分支预测命中率 87.2%–94.6%。实验结果表明，所实现处理器在乱序执行、缓存访问、异常中断处理与虚拟内存管理等关键功能上均满足设计预期，并已成功运行 xv6 教学操作系统。本文工作为 RISC-V 乱序处理器的教学与工程实践提供了可复现的实现路径与系统级参考。
+    为保证设计正确性，本文基于 Chisel、Verilator 与 C++20 构建验证平台，结合差分测试与调试追踪工具对关键模块进行系统验证。在性能评估方面，基于 MicroBench、Dhrystone 与 CoreMark 三组基准程序并结合 RTL 寄存器与 DPI-C 事件的混合性能计数器对处理器进行了多维度定量分析：三组负载 IPC 分别为 0.47、0.45 与 0.55，`commit / ifu_deliver` 处于 0.88–0.91 区间；Dhrystone 成绩为 0.559 DMIPS/MHz，CoreMark 成绩为 1.540 CoreMark/MHz；ICache 命中率均在 99.9996% 以上，DCache 命中率为 96.87%–99.99%，分支预测命中率为 90.97%–96.77%。实验结果表明，所实现处理器在乱序执行、缓存访问、异常中断处理与虚拟内存管理等关键功能上均满足设计预期，并已成功运行 xv6 教学操作系统。本文工作为 RISC-V 乱序处理器的教学与工程实践提供了可复现的实现路径与系统级参考。
   ],
   keywords-cn: ("RISC-V", "乱序执行", "Chisel", "SoC", "差分测试"),
 
@@ -44,7 +44,7 @@
 
     In terms of microarchitectural design, this work implements a single-issue out-of-order processor with a decoupled frontend-backend architecture. The processor employs a unified physical register file based register renaming scheme, supports out-of-order execution with in-order commit, and achieves precise exceptions through a reorder buffer mechanism. The frontend branch prediction adopts a combined GShare+IJTC+RAS scheme. For the memory hierarchy, VIPT-structured ICache and DCache with Pseudo-LRU replacement policy are implemented to reduce memory access latency while accommodating address translation scenarios. In terms of architectural support, M/S/U three-level privilege modes, the Sv39 virtual memory mechanism, and interrupt handling are implemented, providing a complete hardware foundation for operating system execution.
 
-    To ensure design correctness, a verification platform is built using Chisel, Verilator, and C++20, incorporating differential testing against the Spike reference model along with debugging and tracing tools for systematic module-level verification. For performance evaluation, a hybrid performance counter framework combining RTL registers with DPI-C event hooks is developed and exercised against MicroBench, Dhrystone and CoreMark benchmarks: the processor achieves an IPC of 0.43–0.56, 1.596 DMIPS/MHz on Dhrystone and 1.540 CoreMark/MHz on CoreMark, with ICache hit rate above 99.9%, DCache hit rate of 97.5%–99.9%, and branch-prediction hit rate of 87.2%–94.6%. Experimental results demonstrate that the implemented processor meets design expectations across all key functionalities including out-of-order execution, cache access, exception and interrupt handling, and virtual memory management. The processor has successfully booted the xv6 teaching operating system. This work provides a reproducible implementation path and system-level reference for RISC-V out-of-order processor education and engineering practice.
+    To ensure design correctness, a verification platform is built using Chisel, Verilator, and C++20, incorporating differential testing against the Spike reference model along with debugging and tracing tools for systematic module-level verification. For performance evaluation, a hybrid performance counter framework combining RTL registers with DPI-C event hooks is developed and exercised against MicroBench, Dhrystone and CoreMark benchmarks: the processor reaches IPC values of 0.47, 0.45, and 0.55 across the three workloads, with `commit / ifu_deliver` in the 0.88–0.91 range; it achieves 0.559 DMIPS/MHz on Dhrystone and 1.540 CoreMark/MHz on CoreMark, with ICache hit rates above 99.9996%, DCache hit rates of 96.87%–99.99%, and branch-prediction hit rates of 90.97%–96.77%. Experimental results demonstrate that the implemented processor meets design expectations across all key functionalities including out-of-order execution, cache access, exception and interrupt handling, and virtual memory management. The processor has successfully booted the xv6 teaching operating system. This work provides a reproducible implementation path and system-level reference for RISC-V out-of-order processor education and engineering practice.
   ],
   keywords-en: ("RISC-V", "Out-of-Order Execution", "Chisel", "SoC", "Difftest"),
 
@@ -56,7 +56,7 @@
 
     + 关键存储控制器 IP 核实现。使用 Chisel 实现了 Flash 控制器（支持 SPI 命令访问与 XIP 直接取指执行）、PSRAM QSPI Master 控制器（支持 QSPI/QPI 模式切换）与 SDRAM 控制器（支持流水化访问与低位交叉字扩展），三者均配有行为级仿真模型并通过协议级验证，具备对接物理芯片的能力。
 
-    + 单发射乱序处理器核心设计。实现了前后端解耦的单发射乱序处理器，支持 RV64IM 指令集。后端采用统一物理寄存器文件的寄存器重命名方案，通过 FutureRAT/ArchRAT/FreeList/BusyTable 协同工作实现乱序执行与顺序提交；发射队列与执行单元采用泛型抽象类设计，具备良好的代码复用性与可扩展性。前端分支预测采用 GShare+IJTC+RAS 组合方案，在 MicroBench 测试套件下达到 87% 的预测准确率。
+    + 单发射乱序处理器核心设计。实现了前后端解耦的单发射乱序处理器，支持 RV64IM 指令集。后端采用统一物理寄存器文件的寄存器重命名方案，通过 FutureRAT/ArchRAT/FreeList/BusyTable 协同工作实现乱序执行与顺序提交；发射队列与执行单元采用泛型抽象类设计，具备良好的代码复用性与可扩展性。前端分支预测采用 GShare+IJTC+RAS 组合方案，在三组负载上达到 90.97%–96.77% 的预测准确率。
 
     + 缓存子系统设计。实现了 VIPT 结构的 ICache 与 DCache，均为 4 路组相联、64 组、64 字节缓存行，采用 Pseudo-LRU 替换策略。处理器核心侧采用自定义类 SRAM 总线协议降低接口复杂度，缓存对外通过 AXI4 Burst 完成 refill 与 writeback。DCache 支持写回策略、Write Buffer 优化与 fence.i 全缓存刷写。
 
@@ -66,7 +66,7 @@
 
     + 操作系统运行验证。处理器已成功运行 xv6 教学操作系统与 RT-Thread 实时操作系统，验证了乱序执行、缓存访问、异常中断处理与虚拟内存管理等关键功能的正确性。
 
-    + 性能评估。基于 MicroBench、Dhrystone、CoreMark 三组基准程序并结合 RTL 寄存器 + DPI-C 事件的混合性能计数器，对处理器进行了多维度定量评估。测量结果表明：三组负载的 IPC 分别为 0.43、0.44 与 0.56，`commit / ifu\_deliver ≈ 0.89` 说明后端与前端共同参与了瓶颈构成，Dhrystone 成绩达 1.596 DMIPS/MHz（跨越 Cortex-M3 档位），CoreMark 成绩为 1.540 CoreMark/MHz；ICache 命中率 $>$ 99.9%、DCache 命中率 97.5%–99.9%、分支预测命中率 87.2%–94.6%，均处于同类教学与研究实现的主流水平。
+    + 性能评估。基于 MicroBench、Dhrystone、CoreMark 三组基准程序并结合 RTL 寄存器 + DPI-C 事件的混合性能计数器，对处理器进行了多维度定量评估。测量结果表明：三组负载的 IPC 分别为 0.47、0.45 与 0.55，`commit / ifu\_deliver` 处于 0.88–0.91 区间，说明后端与前端共同参与了瓶颈构成；Dhrystone 成绩为 0.559 DMIPS/MHz，CoreMark 成绩为 1.540 CoreMark/MHz；ICache 命中率均在 99.9996% 以上、DCache 命中率为 96.87%–99.99%、分支预测命中率为 90.97%–96.77%，整体处于同类教学与研究实现的合理区间。
 
     本文工作的局限性与未来改进方向包括：当前处理器仍为单发射结构，指令吞吐率受限于每周期至多提交一条指令，后续可扩展为双发射或多发射以进一步提升性能，届时 BTB 与多端口 BP 也将成为必要的补充；当前前端将 Predict 模块挂在 F3 的组合路径上，这在未来追求更高时钟频率时会成为时序关键路径，可通过将 BPU 拆出独立流水段缓解；当前缓存层次仅有 L1，可增加 L2 缓存以降低主存访问延迟；乘除法单元采用多周期迭代实现，可替换为流水化设计以提升吞吐率。此外，可进一步完成 FPGA 综合与上板验证，评估实际时钟频率与资源占用。本文所述设计已在 GitHub 上以 GPLv2 协议开源 #footnote[项目仓库：#link("https://github.com/KINGFIOX/ysyx-workbench")[https://github.com/KINGFIOX/ysyx-workbench]]。
   ],
@@ -1381,6 +1381,8 @@ $ "Divisor" = "system clock frequency" / ("16" times "desired baud rate") $
 - Dhrystone #cite(<weicker1984dhrystone>)：由 Weicker 于 1984 年提出的综合整数基准，无浮点（本设计不支持浮点）、无 I/O、不依赖操作系统。主循环由若干典型系统编程语句构成，包括结构体字段读写、字符串库函数 `strcmp`/`strcpy`、过程调用与条件分支，旨在反映通用整数处理的指令混合与访存密度。本实验使用 Dhrystone v2.2。
 - CoreMark #cite(<coremark2009>)：EEMBC 于 2009 年发布的嵌入式行业标准基准，由链表插入/删除/查找、矩阵乘法/反转与状态机 CRC 三类核心算法组成。EEMBC 通过算法间的数据依赖与运行时种子参数显著抑制了编译器的常量折叠、死代码消除等优化空间，使评分难以通过单纯的编译技巧"作弊"，从而较 Dhrystone 更能反映核心微架构的真实性能。
 
+所有被测基准程序均以 C 语言编写，使用 `riscv64-none-elf-gcc` 15.2.0 交叉编译，编译参数统一为 `-O2`。
+
 === 基准程序配置
 
 考虑到 RTL 仿真速度约为 0.1 MIPS 量级，若采用 benchmark 默认配置则单次运行可能需要数小时甚至数十小时，严重影响实验迭代效率。因此本实验对各基准程序的规模参数进行了合理压缩，具体配置如下：
@@ -1575,24 +1577,49 @@ $
   ],
 ) <tab:perf-industrial>
 
-与 ARM Cortex-M 系列对照。 作为参考，ARM 官方 Cortex-M 处理器对照表 #cite(<arm2024cortexm3>) 给出 Cortex-M0 约 0.84 DMIPS/MHz，Cortex-M3/M4 约 1.25 DMIPS/MHz，Cortex-M7 约 2.14 DMIPS/MHz。本实现 Dhrystone 得分约为 0.559 DMIPS/MHz，低于 Cortex-M0 的 0.84，与商用 Cortex-M 系列差距主要来自以下三点：
+与同档教学/工业核对照。作为商用对照，ARM 官方 Cortex-M 处理器对照表 #cite(<arm2024cortexm3>) 给出 Cortex-M0 约 0.84 DMIPS/MHz、2.33 CoreMark/MHz；同时，单发射开源核的 OpenLA500 #cite(<openla500>)（龙芯社区开源的 LoongArch32r 五级流水核）在 0.13 μm 工艺流片下取得 0.78 DMIPS/MHz 与 2.75 CoreMark/MHz。@fig:perf-cmp 以条形图方式展示本设计与上述两核在两项工业基准上的对照。
 
-+ 稳态 IPC 仍处 0.45 区间——单发射 in-order 流水线 + 前端停顿主导的气泡损失，留下了较大的 IPC 提升空间；
-+ 本实验编译选项为 `-O2`，未启用 Cortex-M 系列在 ARM 官方报告中常用的 `-Ofast` 与 PGO 等更激进优化；
-+ 未对 Dhrystone 中频繁调用的 `strcmp`/`strcpy` 等库函数做专门的汇编级或 SIMD 级优化，而商用嵌入式核普遍会在 newlib/picolibc 中为这些热点路径提供针对性实现。
+#[
+  #import "@preview/cetz:0.4.2"
+  #import "@preview/cetz-plot:0.1.3": chart
 
-CoreMark 由于本身对编译器优化空间较小，更能反映微架构原生性能：本处理器 1.540 CoreMark/MHz 处于教学级单发射 in-order RISC-V 实现的合理区间。
+  #figure(
+    cetz.canvas({
+      chart.barchart(
+        mode: "clustered",
+        size: (10, auto),
+        label-key: 0,
+        value-key: (1, 2),
+        labels: ([DMIPS/MHz], [CoreMark/MHz]),
+        legend: "inner-north-east",
+        x-label: [得分],
+        y-label: none,
+        (
+          ([本设计], 0.559, 1.540),
+          ([Cortex-M0], 0.84, 2.33),
+          ([OpenLA500], 0.78, 2.75),
+        ),
+      )
+    }),
+    caption: [本设计与 Cortex-M0、OpenLA500 在 Dhrystone 与 CoreMark 上的得分对照],
+  ) <fig:perf-cmp>
 
-需要强调的是，DMIPS/MHz 自身已经是频率无关量，假设的时钟频率（如 100 MHz）不会影响该指标的数值，只影响"换算回每秒绝对运行速度"时使用的乘子。
+]
+
+由 @fig:perf-cmp 可以看到，本实现的 Dhrystone 与 CoreMark 得分均落后于 Cortex-M0 与 OpenLA500，其中 Dhrystone 落后约 28%–34%，CoreMark 落后约 34%–44%。与上述两核的差距主要来自以下三点：
+
++ 稳态 IPC 仍处 0.45 区间——前端停顿主导的气泡损失，留下了较大的 IPC 提升空间，详见 @sec:perf-fe-breakdown
++ 本实验编译选项为 `-O2`，未启用 ARM/龙芯官方报告中常用的 `-Ofast` 与 PGO 等更激进优化；
++ 未对 Dhrystone 中频繁调用的 `strcmp`/`strcpy` 等库函数做专门的汇编级优化，而商用嵌入式核与 OpenLA500 这类成熟开源核普遍会在 newlib/picolibc 中为这些热点路径提供针对性实现。
 
 == 本章小结
 
 本章基于 MicroBench、Dhrystone 与 CoreMark 三组基准程序，结合 RTL 寄存器 + DPI-C 事件的混合性能计数器实现，对本处理器进行了多维度的性能评估。主要结论如下：
 
 + 三组负载 IPC 分别为 0.47 / 0.45 / 0.55，CPI 对应为 2.12 / 2.21 / 1.81；前后端指令守恒关系 `commit / ifu_deliver` 处于 0.88–0.91 区间，表明前端与后端共同参与了瓶颈构成；
-+ 前端事件分解显示，前端停顿主要来自 F2 阶段的 ICache 等待（在 MicroBench train 上占总周期的 13.3%，IFU 总停顿比为 32.06%）；自重定向仅由 taken 分支 `fe_redirect branch` 贡献，`fence.i` 的同步职责由 ICache 的 `fence_drain` 状态与后端 `io.flush` 承担，不再占用前端计数事件，说明前后端在 serializing 场景下的协同是高效且稳健的；
++ 前端事件分解显示，IFU 总停顿分别为 49.9M / 58.3M / 44.7M 周期，其中 F2 阶段 ICache 等待是主要来源；MicroBench、Dhrystone、CoreMark 的 IFU 停顿比分别为 32.06% / 40.90% / 34.40%，说明前端瓶颈主要受缓存访存等待与重定向气泡共同影响；
 + 分支预测在循环密集负载（Dhrystone）上达到 96.77% 的高命中率，在异质 micro-kernel 集合（MicroBench train）上为 90.97%，CoreMark 为 94.12%，三组负载命中率均在 90% 以上，整体表现与同类 GShare 方案的主流水平相当；
-+ ICache 在三组负载下均取得 99.9996% 以上命中率、AMAT 接近 1 周期；DCache 除 MicroBench train 因子测试堆区工作集普遍大于 4 KiB DCache 容量而降至 96.87% 外，其余负载均超过 99.99%，Cache 子系统表现稳定；
-+ 工业指标方面，CoreMark 达到 1.540 CoreMark/MHz，Dhrystone 在 `NUMBER_OF_RUNS` $= 140 thin 000$ 下达到 0.559 DMIPS/MHz。总体上，本设计处于教学级单发射 in-order RISC-V 实现的合理区间；与商用 ARM Cortex-M 系列（Cortex-M0 约 0.84 DMIPS/MHz）的差距主要源于稳态 IPC 仍处 0.45 区间、编译器优化等级（`-O2`）以及未对 Dhrystone 库函数做专门优化，未来通过双发射前端、流水化乘除与 PGO 等手段仍有显著提升空间。
++ ICache 在三组负载下均取得 99.9996% 以上命中率、AMAT 接近 1 周期；DCache 除 MicroBench train 因工作集显著大于 4 KiB 容量而降至 96.87% 外，其余负载均超过 99.99%，Cache 子系统表现稳定；
++ 工业指标方面，本设计达到 0.559 DMIPS/MHz 与 1.540 CoreMark/MHz；与 @fig:perf-cmp 中 Cortex-M0（0.84 / 2.33）和 OpenLA500（0.78 / 2.75）的对照表明，当前差距主要来自稳态 IPC 偏低、编译优化等级为 `-O2`、以及未对 Dhrystone 热点库函数做专门优化。未来通过双发射前端、流水化乘除与 PGO 等手段仍有显著提升空间。
 
-上述结果定量刻画了本处理器的性能画像。本文建立的"RTL 寄存器 + DPI-C 事件"混合性能计数器框架既能给出整体 IPC、Cache 命中率等宏观指标，也能分解前端各段开销，为后续进一步的微架构迭代（例如双发射前端、L2 Cache、流水化乘除单元）提供可复用的定量评估基础。
+上述结果定量刻画了本处理器的性能画像。本文建立的"RTL 寄存器 + DPI-C 事件"混合性能计数器框架既能给出整体 IPC、Cache 命中率等宏观指标，也能分解前端停顿与分支行为等细粒度开销，为后续微架构迭代（如双发射前端、L2 Cache、流水化乘除单元）提供可复用的定量评估基础。
