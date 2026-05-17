@@ -1542,7 +1542,7 @@ DCache 的平均缺失代价（21–35 周期）整体高于 ICache（约 20–2
 
 基于 @tbl:perf-overview 中的周期数，可进一步换算出若干行业通行的性能指标，便于与商用处理器横向比较。
 
-Dhrystone MIPS（DMIPS）以 DEC VAX 11/780 #cite(<strecker1978vax11780>) 在 Dhrystone 基准上达到的 1757 Dhrystones/sec 作为 1 MIPS(million instruction per second) 的参考点，即
+Dhrystone MIPS（DMIPS）以 DEC VAX 11/780 #footnote[DEC 于 1977 年发布的 32 位 VAX 小型机，常被用作 Dhrystone 性能换算中的历史参考基线。参考文献：#cite(<strecker1978vax11780>)] 在 Dhrystone 基准上达到的 1757 Dhrystones/sec 作为 1 MIPS(million instruction per second) 的参考点，即
 
 $
   "DMIPS" = ("Dhrystones per second") / 1757
