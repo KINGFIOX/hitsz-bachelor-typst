@@ -20,29 +20,21 @@
         };
         win10Fonts = win10-fonts.packages.${system}.win10-fonts;
 
-        # Backport https://github.com/typst/typst/pull/8042 (merged 2026-03-30)
-        # onto typst 0.14.2 (released 2025-12-12). Without it,
-        # `typographic_family()` strips the "ExtB" suffix from "SimSun-ExtB" as
-        # if it were an "ExtraBold" variant, merging SimSun-ExtB into the
-        # SimSun family. Both then register as Normal/400 and `book.select()`
-        # picks one non-deterministically; on macOS the build picks
-        # SimSun-ExtB (no basic CJK glyphs) and silently falls back to
-        # KaiTi/NSimSun, while CI on Linux happens to pick the right SimSun.
-        #
-        # The patch is contained to crates/typst-library/src/text/font/exceptions.rs
-        # and does not touch Cargo.lock, so the upstream cargoHash stays valid.
-        # Drop this override once nixpkgs ships a typst release containing #8042.
-        typst = pkgs.typst.overrideAttrs (old: {
-          patches = (old.patches or [ ]) ++ [
-            (pkgs.fetchpatch {
-              name = "typst-pr-8042-fix-simsun-extb.patch";
-              url = "https://github.com/typst/typst/commit/7652884e3b26fd3161ce7768c90e2b5892a2111d.patch";
-              hash = "sha256-XvQzIcU1kui2+2a/QSkhSDbNY5RIi8m9VZODgJwihdM=";
-            })
-          ];
-        });
+        # texliveFull contains every CTAN package: ctex / xeCJK / fandol /
+        # tikz / tikz-timing / pgfplots / listings / hyperref / biblatex /
+        # splitindex / latexmk and so on. The hithesis class itself is not
+        # installed by texlive; we ship a copy under
+        # template/latex/examples/hitbook/chinese/ and add it to TEXINPUTS so
+        # xelatex can pick up *.cls / *.cfg / *.sty / *.bst / *.ist / *.eps.
+        texlive = pkgs.texliveFull;
 
-        typstFontPath = "${win10Fonts}/share/fonts/truetype";
+        hithesisAssets = ./template/latex/examples/hitbook/chinese;
+
+        # win10-fonts ships SimSun / SimHei / FangSong / KaiTi etc. into
+        # share/fonts/truetype. Pointing OSFONTDIR at that directory makes
+        # them visible to xelatex's font picker, which is what
+        # `\documentclass[fontset=windows,...]{hithesisbook}` expects.
+        latexFontPath = "${win10Fonts}/share/fonts/truetype";
       in
       {
         packages.default = pkgs.stdenvNoCC.mkDerivation {
@@ -51,8 +43,10 @@
           src = ./.;
 
           nativeBuildInputs = [
-            typst
+            texlive
             win10Fonts
+            pkgs.coreutils
+            pkgs.which
           ];
 
           dontConfigure = true;
@@ -61,42 +55,43 @@
           buildPhase = ''
             runHook preBuild
             export HOME="$TMPDIR"
-            export TYPST_FONT_PATHS="${typstFontPath}"
-            export TYPST_IGNORE_SYSTEM_FONTS=true
-            typst compile \
-              --root . \
-              main/bachelor.typ bachelor.pdf
+            export OSFONTDIR="${latexFontPath}"
+            # NOTE: do not use `//` recursive globs here. The hithesis chinese/
+            # directory ships its own example `thesis.tex` and `front/cover.tex`
+            # etc.; if we expose them recursively, kpsewhich shadows our local
+            # `main/thesis.tex` and `main/front/cover.tex` with the template's
+            # demo files. Adding only the top-level dir is enough because we
+            # only need the *.cls / *.cfg / *.sty / *.bst / *.ist / *.eps that
+            # all live at the root of chinese/.
+            export TEXINPUTS=".:${hithesisAssets}:"
+            export BIBINPUTS=".:"
+            export BSTINPUTS=".:${hithesisAssets}:"
+            cd main
+            latexmk -xelatex -interaction=nonstopmode -file-line-error -halt-on-error ./thesis.tex
             runHook postBuild
           '';
 
           installPhase = ''
             runHook preInstall
             mkdir -p "$out"
-            cp bachelor.pdf "$out/"
+            cp thesis.pdf "$out/bachelor.pdf"
             runHook postInstall
           '';
         };
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            typst
+            texlive
             win10Fonts
             pkgs.nodejs_22 # used for mcp
           ];
 
-          # `TYPST_FONT_PATHS` is consumed by:
-          #   - `typst` CLI invocations from the terminal
-          #   - tinymist preview, via `.vscode/settings.json`'s
-          #     `tinymist.fontPaths: ["${"$"}{env:TYPST_FONT_PATHS}"]`.
-          #     This works because the mkhl.direnv extension auto-loads
-          #     `.envrc` (`use flake`) on workspace open and injects this
-          #     variable into the tinymist LSP process; tinymist then
-          #     substitutes `${"$"}{env:...}` before passing paths to the
-          #     compiler. So preview, terminal `typst`, and `nix build` all
-          #     resolve fonts from the same nix-store directory.
+          # Mirror the build environment so that running `cd main && latexmk`
+          # inside `nix develop` reproduces what `nix build` does.
           shellHook = ''
-            export TYPST_IGNORE_SYSTEM_FONTS=true
-            export TYPST_FONT_PATHS="${typstFontPath}"
+            export OSFONTDIR="${latexFontPath}"
+            export TEXINPUTS=".:${hithesisAssets}:"
+            export BSTINPUTS=".:${hithesisAssets}:"
           '';
         };
       }

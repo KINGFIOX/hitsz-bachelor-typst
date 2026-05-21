@@ -1,0 +1,65 @@
+% !Mode:: "TeX:UTF-8"
+
+\hitsetup{
+  %===========
+  % 论文类型
+  %===========
+  design=true,
+  %
+  %=====
+  % 秘级
+  %=====
+  statesecrets={公开},
+  %
+  %=========
+  % 中文信息
+  %=========
+  ctitleone={RISC-V 指令集},
+  ctitletwo={乱序处理器设计},
+  ctitlecover={RISC-V 指令集乱序处理器设计},
+  ctitle={RISC-V 指令集乱序处理器设计},
+  cxueke={工学},
+  csubject={计算机科学与技术},
+  caffil={深圳校区计算机科学与技术学院},
+  cauthor={王靳},
+  csupervisor={薛睿高级实验师},
+  firstpagecdate={2026年5月},
+  cdate={2026年5月15日},
+  cstudentid={220111012},
+  cstudenttype={本科毕业设计},
+  %
+  %=========
+  % 英文信息
+  %=========
+  etitle={Design of RISC-V Out-of-Order Processor},
+  exueke={Engineering},
+  esubject={Computer Science and Technology},
+  eaffil={\emultiline[t]{School of Computer Science and Technology \\ Shenzhen Campus}},
+  eauthor={Wang Jin},
+  esupervisor={Senior Experimentalist Xue Rui},
+  edate={May, 2026},
+  estudenttype={Bachelor of Engineering},
+  %
+  ckeywords={RISC-V, 乱序执行, Chisel, SoC, 差分测试},
+  ekeywords={RISC-V, Out-of-Order Execution, Chisel, SoC, Difftest},
+}
+
+\begin{cabstract}
+
+随着开源指令集架构 RISC-V 的快速发展，基于开源生态开展高性能处理器研究已成为体系结构领域的重要方向。乱序执行通过动态调度与寄存器重命名提升指令级并行性，是现代处理器获得高性能的关键机制。本文围绕“RISC-V 指令集乱序处理器设计”，完成了从核心微架构到系统软件支撑的整体实现与验证。
+
+在微架构设计方面，本文实现了前后端解耦的单发射乱序处理器，采用统一物理寄存器的寄存器重命名方案，支持乱序执行与顺序提交，并通过重排序机制实现精确异常；前端分支预测采用 GShare+IJTC+RAS 组合方案。存储层次方面，实现了基于 VIPT 结构且采用 PLRU 替换策略的 ICache 与 DCache，以降低访存开销并兼顾地址转换场景下的访问效率。体系结构支持方面，实现了 M/S/U 三级特权架构、Sv39 虚拟内存机制与中断处理机制，为操作系统运行提供了完整硬件基础。
+
+为保证设计正确性，本文基于 Chisel、Verilator 与 C++20 构建验证平台，结合差分测试与调试追踪工具对关键模块进行系统验证。在性能评估方面，基于 MicroBench、Dhrystone 与 CoreMark 三组基准程序并结合 RTL 寄存器与 DPI-C 事件的混合性能计数器对处理器进行了多维度定量分析：三组负载 IPC 分别为 0.47、0.45 与 0.55，\lstinline|commit / ifu_deliver| 处于 0.88--0.91 区间；Dhrystone 成绩为 0.559 DMIPS/MHz，CoreMark 成绩为 1.540 CoreMark/MHz；ICache 命中率均在 99.9996\% 以上，DCache 命中率为 96.87\%--99.99\%，分支预测命中率为 90.97\%--96.77\%。实验结果表明，所实现处理器在乱序执行、缓存访问、异常中断处理与虚拟内存管理等关键功能上均满足设计预期，并已成功运行 xv6 教学操作系统。本文工作为 RISC-V 乱序处理器的教学与工程实践提供了可复现的实现路径与系统级参考。
+
+\end{cabstract}
+
+\begin{eabstract}
+
+With the rapid development of the open-source RISC-V instruction set architecture, conducting high-performance processor research within an open ecosystem has become a significant direction in computer architecture. Out-of-order execution improves instruction-level parallelism through dynamic scheduling and register renaming, serving as a key mechanism for achieving high performance in modern processors. This thesis presents a complete design and verification of a RISC-V out-of-order processor, spanning from core microarchitecture to system software support.
+
+In terms of microarchitectural design, this work implements a single-issue out-of-order processor with a decoupled frontend-backend architecture. The processor employs a unified physical register file based register renaming scheme, supports out-of-order execution with in-order commit, and achieves precise exceptions through a reorder buffer mechanism. The frontend branch prediction adopts a combined GShare+IJTC+RAS scheme. For the memory hierarchy, VIPT-structured ICache and DCache with Pseudo-LRU replacement policy are implemented to reduce memory access latency while accommodating address translation scenarios. In terms of architectural support, M/S/U three-level privilege modes, the Sv39 virtual memory mechanism, and interrupt handling are implemented, providing a complete hardware foundation for operating system execution.
+
+To ensure design correctness, a verification platform is built using Chisel, Verilator, and C++20, incorporating differential testing against the Spike reference model along with debugging and tracing tools for systematic module-level verification. For performance evaluation, a hybrid performance counter framework combining RTL registers with DPI-C event hooks is developed and exercised against MicroBench, Dhrystone and CoreMark benchmarks: the processor reaches IPC values of 0.47, 0.45, and 0.55 across the three workloads, with \lstinline|commit / ifu_deliver| in the 0.88--0.91 range; it achieves 0.559 DMIPS/MHz on Dhrystone and 1.540 CoreMark/MHz on CoreMark, with ICache hit rates above 99.9996\%, DCache hit rates of 96.87\%--99.99\%, and branch-prediction hit rates of 90.97\%--96.77\%. Experimental results demonstrate that the implemented processor meets design expectations across all key functionalities including out-of-order execution, cache access, exception and interrupt handling, and virtual memory management. The processor has successfully booted the xv6 teaching operating system. This work provides a reproducible implementation path and system-level reference for RISC-V out-of-order processor education and engineering practice.
+
+\end{eabstract}

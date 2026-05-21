@@ -1,9 +1,0 @@
-[package]
-name = "universal-hit-thesis"
-version = "0.1.0"
-entrypoint = "lib.typ"
-authors = ["CHOSER Tech", "HITSZ OSA", "wangfiox"]
-licenses = ["MIT", "GPL-2.0-only"]
-repository = "https://github.com/KINGFIOX/hitsz-bachelor-typst"
-exclude = []
-compiler = "0.13.0"

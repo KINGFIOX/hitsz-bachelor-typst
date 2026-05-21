@@ -1,0 +1,106 @@
+% !Mode:: "TeX:UTF-8"
+% !TeX program = xelatex
+
+\documentclass[fontset=windows,type=bachelor,campus=shenzhen,chapterbold=false,tocblank=false]{hithesisbook}
+
+\usepackage{hithesis}
+
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{tikz-timing}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+
+% 让 listings 支持 UTF-8 输入并能在等宽段落里渲染中文注释 / 中文字符串
+\usepackage{xeCJK}
+\setCJKmonofont[Scale=0.92]{NSimSun}
+
+% 代码框样式
+\definecolor{codebg}{HTML}{FAFAFA}
+\definecolor{codekw}{HTML}{0033B3}
+\definecolor{codestr}{HTML}{067D17}
+\definecolor{codecmt}{HTML}{8C8C8C}
+
+\lstdefinestyle{codefig}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codekw}\bfseries,
+  stringstyle=\color{codestr},
+  commentstyle=\color{codecmt}\itshape,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0pt,
+  rulecolor=\color{codebg},
+  breaklines=true,
+  breakatwhitespace=false,
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2,
+  captionpos=b,
+  extendedchars=true,
+  inputencoding=utf8,
+  upquote=true,
+  columns=fullflexible,
+  xleftmargin=8pt,
+  xrightmargin=8pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+}
+\lstset{style=codefig}
+
+% 代码列表中文标号
+\renewcommand{\lstlistingname}{代码}
+
+\lstdefinelanguage{Scala}{
+  morekeywords={abstract,case,catch,class,def,do,else,extends,false,final,finally,for,if,implicit,import,match,new,null,object,override,package,private,protected,return,sealed,super,this,throw,trait,true,try,type,val,var,while,with,yield,Bool,UInt,Vec,Reg,RegInit,RegEnable,Decoupled,Flipped,Output,Input,Bundle,IO,Module,Wire,when,elsewhen,otherwise},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]"
+}
+
+% 图片搜索路径：本地 images/ 与 hithesis 资产目录（封面 .eps 等）
+\graphicspath{{images/}{../template/latex/examples/hitbook/chinese/}}
+
+% 行内引用空白处理（hithesis 自带）
+\newcommand{\cndash}{\rule{0.2em}{0pt}\rule[0.35em]{1.6em}{0.05em}\rule{0.2em}{0pt}}
+
+\begin{document}
+\frontmatter
+\input{front/cover}
+\makecover
+\tableofcontents
+
+\mainmatter
+\include{body/ch1_intro}
+\include{body/ch2_soc}
+\include{body/ch3_ip}
+\include{body/ch4_decouple}
+\include{body/ch5_frontend}
+\include{body/ch6_backend}
+\include{body/ch7_priv}
+\include{body/ch8_cache}
+\include{body/ch9_sim}
+\include{body/ch10_perf}
+
+\backmatter
+\include{back/conclusion}
+
+\bibliographystyle{gbt7714-numerical}
+\bibliography{refs}
+
+\include{back/achievement}
+
+\authorization
+
+\include{back/acknowledgements}
+
+\end{document}
+% Local Variables:
+% TeX-engine: xetex
+% End:

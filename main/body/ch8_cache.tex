@@ -1,0 +1,237 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{缓存设计}
+
+\section{类 SRAM 总线协议}
+
+处理器核心（IFU、LSU）与缓存之间的交互采用自定义的类 SRAM（SRAM-like）总线协议，而非直接使用 AXI4~\cite{arm2020axi4} 等复杂片上总线。这一设计的出发点是降低处理器核心侧的接口复杂度：AXI4 协议包含 5 个独立通道（AR、AW、W、R、B）与多种突发传输模式，对于处理器核心每次仅发起单拍读写的场景过于冗余；而类 SRAM 协议将读写统一到一组信号上，核心侧仅需驱动一个请求端口即可完成访存操作。
+
+\begin{lstlisting}[language=Scala,caption={类 SRAM 总线接口定义},label={lst:sram-bundle}]
+class SRAMBundle extends Bundle {
+  val req   = Output(Bool())     // 请求有效
+  val wen   = Output(Bool())     // 写使能（0=读，1=写）
+  val size  = Output(UInt(...))  // 访问宽度
+  val addr  = Output(UInt(...))  // 地址
+  val wstrb = Output(UInt(...))  // 写字节掩码
+  val wdata = Output(UInt(...))  // 写数据
+  val ack   = Input(Bool())      // 请求被接受
+  val done  = Input(Bool())      // 数据就绪 / 写完成
+  val rdata = Input(UInt(...))   // 读数据
+}
+\end{lstlisting}
+
+协议采用 req $\to$ ack $\to$ done 三阶段握手。图~\ref{fig:sram-read} 与图~\ref{fig:sram-write} 分别展示了一次读事务与一次写事务的时序波形。
+
+\begin{figure}[H]
+  \centering
+  \begin{tikztimingtable}[xscale=1.2]
+    clk   & 9{C} \\
+    req   & L H H L L L L L L \\
+    wen   & U L L U U U U U U \\
+    size  & U D{2'b01} D{2'b01} U U U U U U \\
+    addr  & U D{addr(A)} D{addr(A)} U U U U U U \\
+    ack   & L L H L L L L L L \\
+    done  & L L L L L H L L L \\
+    rdata & U U U U U D{data(A)} U U U \\
+  \end{tikztimingtable}
+  \caption{类 SRAM 总线上的一次读事务}
+  \label{fig:sram-read}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikztimingtable}[xscale=1.2]
+    clk   & 9{C} \\
+    req   & L H H L L L L L L \\
+    wen   & U H H U U U U U U \\
+    size  & U D{2'b00} D{2'b00} U U U U U U \\
+    addr  & U D{addr(B)} D{addr(B)} U U U U U U \\
+    wdata & U D{data(B)} D{data(B)} U U U U U U \\
+    ack   & L L H L L L L L L \\
+    done  & L L L L L H L L L \\
+  \end{tikztimingtable}
+  \caption{类 SRAM 总线上的一次写事务}
+  \label{fig:sram-write}
+\end{figure}
+
+如图~\ref{fig:sram-read} 所示，主设备发起读请求时拉高 req 并驱动 addr、wen=0、size 等信号，req 持续保持高电平直到从设备拉高 ack，此时两者同时拉低，完成一次请求握手（req-ack）。随后从设备在数据就绪时拉高 done 并在 rdata 上输出有效数据，完成数据响应。写事务（图~\ref{fig:sram-write}）的握手流程与读事务相同，区别在于 wen=1 且主设备额外驱动 wdata 与 wstrb。
+
+该协议的核心设计在于将 req-ack 请求握手与 done 数据响应分离为两个独立阶段。这一分离带来两方面优势：
+
+\begin{enumerate}
+  \item 避免复杂协议。处理器核心与 L1 Cache 之间无需使用 AXI4 的五通道握手协议，仅需驱动 req 和检测 ack/done 两对信号，显著降低了核心侧的接口复杂度与控制逻辑面积。
+  \item 保持流水能力。对于读操作，地址阶段（req-ack）与数据阶段（done）天然分离：ack 返回后地址已被缓存锁存，核心状态机可提前进入等待数据状态。当缓存命中时，ack 与 done 可在同一周期返回，实现单周期完成；当缓存缺失时，ack 先返回表示请求已接受，done 在缓存行填充完成后延迟返回。核心侧状态机无需区分命中与缺失，统一以“等待 done”收束。
+\end{enumerate}
+
+\subsection{Diplomacy 参数协商}
+
+为使类 SRAM 总线能够融入 Rocket Chip~\cite{asanovic2016rocket} 的 Diplomacy 参数协商框架，本文为其实现了完整节点体系。接入 Diplomacy 后，Chisel elaboration 可理解为三个阶段：
+
+\begin{enumerate}
+  \item 将参数化硬件组织为有向无环图（DAG）；图中可存在多个参数源点，例如闭源 IP 核的接口参数通常不可被外部反向调整，只能作为约束源头。
+  \item 框架沿连接关系遍历 DAG，完成参数协商并确定各模块实例的最终参数。
+  \item 基于协商结果实例化具体硬件与 Bundle。其核心收益在于将“参数决定”前置为图级计算，避免在模块内部硬编码位宽与地址映射。
+\end{enumerate}
+
+在工程实现上，要接入 Diplomacy 必须补齐相应接口与节点抽象。本文具体实现包括：\lstinline|SRAMMasterPortParameters| 与 \lstinline|SRAMSlavePortParameters| 描述主从端口约束（地址范围、数据位宽等）；\lstinline|SRAMEdgeParameters| 在连线建立时由框架生成，封装协商后的 \lstinline|SRAMBundleParameters|；\lstinline|SRAMImp| 实现 \lstinline|SimpleNodeImp|，定义参数传递规则与硬件 Bundle 生成逻辑。在此基础上进一步派生 \lstinline|SRAMMasterNode|、\lstinline|SRAMSlaveNode|、\lstinline|SRAMNexusNode| 与 \lstinline|SRAMIdentityNode|，分别覆盖源节点、汇节点、多端口汇聚与透传场景。由于 Diplomacy 公开示例相对有限，本文实现过程主要参考《香山源码剖析》\cite{MaoDeCaoRISCVCPUXinPianSheJi} 中的方法，并在本项目中验证其可行性。
+
+\subsection{SRAMToAXI4 桥接与缓存的双面接口}
+
+类 SRAM 协议服务于处理器核心侧，而 SoC 互连采用 AXI4 协议，因此需要在两者之间进行协议转换。本文实现了通用的 \lstinline|SRAMToAXI4| 桥接模块，用于不经过缓存的直通路径（如外设端口）。桥接模块内部采用五状态 FSM（idle $\to$ readAddr $\to$ readData / write $\to$ writeResp），将 SRAM 的单拍读写映射为 AXI4 的单拍突发传输（len=0）。该模块基于 Diplomacy 的 \lstinline|MixedAdapterNode| 实现，上游为 SRAM 节点、下游为 AXI4 节点，参数在连接时自动转换。
+
+ICache 与 DCache 本身也充当协议桥接的角色：面向处理器核心暴露类 SRAM 接口，接收单拍读写请求；面向 SoC 互连则通过 AXI4 接口与下级存储交互。缓存缺失时，缓存控制器通过 AXI4 Burst 传输（len > 0）从主存读取整条缓存行完成 refill；写回脏行时同样通过 AXI4 Burst 将整条缓存行写回主存。这一设计使处理器核心始终面对简洁的类 SRAM 接口，缓存内部负责单拍请求与突发传输之间的转换。
+
+\section{PLRU 替换策略}
+
+ICache 与 DCache 均为 4 路组相联结构（64 组，每组 4 路，缓存行 64 字节）。替换策略采用伪 LRU（Pseudo-LRU, PLRU）算法~\cite{belady1966replacement}，以较低的硬件开销近似 LRU 行为。
+
+PLRU 使用一棵 $n-1$ 个节点的二叉树（4 路对应 3 个节点）记录访问方向。每个节点存储 1 位标志，指向“最近较少使用”的子树方向。如图~\ref{fig:plru} 所示，树的叶子节点对应 4 条缓存路，内部节点的标志位在每次访问时更新为指向另一侧，使得沿标志位路径走到的叶子即为待替换的路。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{plru.png}
+  \caption{4 路 Pseudo-LRU 二叉树结构示意}
+  \label{fig:plru}
+\end{figure}
+
+\begin{lstlisting}[language=Python,caption={PLRU 访问更新},label={lst:plru-access}]
+def plru_access(tree: list[int], way: int):
+    """访问 way 后更新 PLRU 树节点，使其指向远离被访问路的方向"""
+    tree[0] = 1 if way in (0, 1) else 0  # 根节点
+    tree[1 + way // 2] = 1 if way in (0, 2) else 0  # 子节点
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python,caption={PLRU 替换选择},label={lst:plru-victim}]
+def plru_victim(tree: list[int]) -> int:
+    """沿树节点标志位从根到叶，返回待替换的路号"""
+    if tree[0] == 0:  # go left
+        return 0 if tree[1] == 0 else 1
+    else:             # go right
+        return 2 if tree[2] == 0 else 3
+\end{lstlisting}
+
+如代码~\ref{lst:plru-access} 所示，每次缓存命中时根据命中的路号更新树节点标志，使其指向远离被访问路的方向。如代码~\ref{lst:plru-victim} 所示，需要替换时沿树节点标志位从根到叶遍历，得到的叶子即为牺牲路。该算法仅需 3 位状态与简单的组合逻辑即可实现 4 路近似 LRU 替换，硬件开销远低于完整 LRU 所需的访问序记录。
+
+\section{ICache}\label{sec:icache-fsm}
+
+ICache 采用 VIPT（Virtually Indexed, Physically Tagged）结构，64 组 x 4 路 x 64 字节缓存行，总容量 16 KB。面向处理器核心提供类 SRAM 只读接口，面向 SoC 互连通过 AXI4 接口进行 refill。ICache 为只读缓存，不涉及写操作与脏行管理。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{icache-fsm.png}
+  \caption{ICache 主状态机（虚线为 fence.i 相关跃迁）}
+  \label{fig:icache-fsm}
+\end{figure}
+
+如图~\ref{fig:icache-fsm} 所示，ICache 的主状态机在原先五个状态的基础上，为支持前端对 \lstinline|fence.i| 的支持额外引入了 \lstinline|fence_drain| 状态，共六个状态：
+
+\begin{enumerate}
+  \item idle：等待请求。收到 req 时锁存地址（拆分为 tag、index、beat 偏移），返回 ack 并进入 lookup。
+  \item lookup：用锁存的 tag 与 index 查询 tag RAM，4 路并行比较。若命中，直接从 cacheline 读出目标指令，返回 done 与 rdata。命中时若有新请求可直接锁存并停留在 lookup（lookup -> lookup 快速路径），实现连续命中的单周期吞吐。若缺失，记录 PLRU 选出的替换路号，进入 miss。
+  \item miss -> replace：miss 为单周期过渡状态。replace 状态向 AXI4 AR 通道发起突发读请求（8 拍 x 8 字节 = 64 字节），AR 握手成功后进入 refill。
+  \item refill：逐拍接收 AXI4 R 通道返回的数据并写入对应 cahcline。收到 R.last 后更新 tag RAM（写入新 tag、置 valid）、推进 PLRU 替换指针，返回 done 与 rdata，回到 idle。
+  \item fence\_drain：专用于“AXI burst 已启动、但 fence.i 已到达”的中间状态。进入该状态后 ICache 消费完来自总线的突发读事务，但不再将数据回写到 tag RAM / cacheline，也不推进 PLRU，直到 \lstinline|r.last| 抵达后回到 idle。
+\end{enumerate}
+
+围绕 \lstinline|fence.i| 的处理贯穿了所有与总线相关的状态。当 \lstinline|fence_i| 脉冲到达时，ICache 会在同一拍把 \lstinline|tag_ram(*).valids| 全部清零——这使整个缓存在“语义”上立即变空。剩下的问题是如何与“已启动、无法撤销”的 AXI 事务共存：
+
+\begin{enumerate}
+  \item 在 idle / lookup / miss 三个状态下，ICache 尚未在 AXI 上发起任何 AR 握手，因此 \lstinline|fence_i| 到来时直接回到 idle；已失效的 tag RAM 保证下一次查询必然 miss 并重新从总线取指。
+  \item 在 replace 状态下，AR 通道的 \lstinline|valid| 已经高起但是否握手取决于下游 \lstinline|ready|。若 \lstinline|fence_i| 与 \lstinline|ar.fire| 恰好同拍，则本次 burst 已经不可撤销，必须跳入 \lstinline|fence_drain| 把后续 R 拍全部吞掉；否则只需下一拍直接回 idle，AR 随之解挂。
+  \item 在 refill 状态下，AR 必然已经 fire、R 通道正在返回，此时 \lstinline|fence_i| 强制进入 \lstinline|fence_drain|。此外还存在一种极端时序：若 \lstinline|fence_i| 与 \lstinline|r.last| 同拍到达，常规 refill 路径会在本拍把该行写入 tag RAM 并置 valid。为此，本设计采用优先级多路选择：“\lstinline|fence_i| clear valids” > “\lstinline|r.last| set valid”。
+\end{enumerate}
+
+这样，无论 \lstinline|fence.i| 在哪一个周期抵达，ICache 都能在至多一次额外 burst 的代价内回到“完全空缓存 + AXI 无事务”的干净状态，且整个过程不需要前端参与握手。前端因此可以对 \lstinline|fence.i| 完全保持透明：它像普通指令一样被取到 F3、送入后端，由后端 CommitStage 在提交时统一发出 \lstinline|fence_i| 脉冲与 \lstinline|io.flush|，其中 \lstinline|io.flush| 负责同周期清空整条取指流水。
+
+\section{DCache}
+
+DCache 同样采用 VIPT 结构，64 组 x 4 路 x 64 字节缓存行，总容量 16 KB。与 ICache 的关键区别在于 DCache 需要处理写操作，采用写回（write-back）策略，并引入 Write Buffer 与脏行写回机制。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{dcache-fsm.png}
+  \caption{DCache 主状态机}
+  \label{fig:dcache-fsm}
+\end{figure}
+
+如图~\ref{fig:dcache-fsm} 所示，DCache 的主状态机包含七个状态：
+
+\begin{enumerate}
+  \item idle：等待请求。收到 \lstinline|fence.i| 时进入 flush 流程；正常请求时锁存地址与写控制信号（wen、wdata、wstrb），进入 lookup。\lstinline|sfence.vma| 仅作用于地址翻译缓存（TLB），不直接触发 DCache 刷写。
+  \item lookup：4 路并行比较。命中时：若为读操作直接返回数据；若为写操作触发 Write Buffer——将写入目标（index、way、beat、wstrb、wdata）送入单项 Write Buffer，在下一周期由 Write Buffer 完成按字节掩码合并写入 data bank 并置脏位。Write Buffer 的引入使写命中不阻塞主 FSM，lookup 可立即接受下一请求。Write Buffer 还负责检测读写冲突：若新读请求与正在执行的 Write Buffer 写入地址重叠，则暂停接受请求直到 Write Buffer 完成。
+  \item miss：PLRU 选出替换路后，检查 victimed 的 cacheline 是否为脏行。若脏则先通过 AXI4 AW 通道发起写回地址；若干净则跳过写回阶段。
+  \item replace：该状态并行处理三个子阶段——（1）通过 AXI4 W 通道逐拍写回脏行数据；（2）等待 AXI4 B 通道确认写回完成；（3）通过 AXI4 AR 通道发起 refill 读请求。当 AR 发送完毕且 B 确认收到后进入 refill。
+  \item refill：逐拍接收 R 通道数据写入 data bank。若原始请求为写操作，在目标 beat 位置将 refill 数据与写数据按字节掩码合并后写入。R.last 后更新 tag RAM（新 tag、valid、dirty 标志）、推进 PLRU 指针，返回 done 回到 idle。
+  \item flush\_scan -> flush\_wb：由 \lstinline|fence.i|（或缓存维护触发）进入全缓存刷写流程。flush\_scan 逐组逐路扫描，遇到脏行则进入 flush\_wb 通过 AXI4 写回该行，写回完成后清除脏位并继续扫描，直到所有组路遍历完毕回到 idle。
+\end{enumerate}
+
+\section{指令-数据缓存一致性与 fence.i}
+
+在冯·诺依曼架构~\cite{vonneumann1945edvac} 中，指令与数据共享同一地址空间；然而本处理器采用分离式 L1 缓存（ICache 与 DCache），二者之间不存在硬件一致性协议。这意味着当程序在运行时修改自身代码——即“自修改代码”（Self-Modifying Code）场景——时，ICache 与 DCache 之间会出现一致性问题。
+
+一个典型的实例是 Bootloader 的快速启动路径：系统上电后，处理器从 XIP（Execute-In-Place）模式的 Flash 开始执行，Bootloader 将 Flash 中的应用程序映像搬运到 SDRAM 以获得更高的访问速度，随后跳转至 SDRAM 入口地址继续执行。其核心指令序列如下：
+
+\begin{table}[H]
+  \centering
+  \caption{Bootloader 快速启动路径中的指令序列}
+  \label{tbl:bootloader-seq}
+  \begin{tabular}{cll}
+    \toprule
+    步骤 & 指令 & 含义 \\
+    \midrule
+    1 & \lstinline|sw inst, 0(sdram_addr)| & 将指令写入 SDRAM（经 DCache） \\
+    2 & \lstinline|j sdram_addr| & 跳转至 SDRAM 入口执行 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+问题在于：步骤 1 的 \lstinline|sw| 指令将数据写入 DCache（写回策略下，脏行尚未写回 SDRAM）；步骤 2 的跳转触发 IFU 从 \lstinline|sdram_addr| 取指，而 IFU 只能访问 ICache 与下级存储，无法看到 DCache 中的脏数据。此时 ICache 未命中，从 SDRAM 读取到的仍是旧数据（全零或无效内容），导致处理器执行错误指令。
+
+RISC-V 指令集架构通过 \lstinline|fence.i| 指令显式解决这一问题。正确的指令序列应为：
+
+\begin{table}[H]
+  \centering
+  \caption{加入 fence.i 后的正确指令序列}
+  \label{tbl:bootloader-fence}
+  \begin{tabular}{cll}
+    \toprule
+    步骤 & 操作 & 含义 \\
+    \midrule
+    1 & \lstinline|sw inst, 0(sdram_addr)| & 将指令写入 SDRAM（经 DCache） \\
+    2 & \lstinline|fence.i| & 同步指令流与数据流 \\
+    3 & \lstinline|j sdram_addr| & 跳转至 SDRAM 入口执行 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+在本处理器的实现中，\lstinline|fence.i| 的执行分为两个阶段：
+
+\begin{enumerate}
+  \item DCache 刷写：DCache 进入 flush 流程（参见图~\ref{fig:dcache-fsm} 中 flush\_scan $\to$ flush\_wb 路径），逐组逐路扫描所有缓存行，将脏行通过 AXI4 写通道写回下级存储，确保所有已修改数据对外可见。
+  \item ICache 失效：DCache 刷写完成后，ICache 将全部缓存行的 valid 位清零，迫使后续取指请求从下级存储重新加载。
+\end{enumerate}
+
+经过 \lstinline|fence.i| 的两阶段处理，步骤 1 写入 DCache 的指令数据已安全落入 SDRAM，而 ICache 的全部内容已失效。当步骤 3 跳转到 \lstinline|sdram_addr| 时，ICache 必然未命中，从 SDRAM 重新加载到正确的指令内容，程序得以正确执行。
+
+需要指出的是，\lstinline|fence.i| 是一条代价较高的指令：它要求刷写整个 DCache 并失效整个 ICache，开销与缓存容量成正比。RISC-V 规范将其定义为“Zifencei”扩展而非基础指令集的一部分，正是考虑到在多核系统中维护指令-数据一致性有更高效的硬件机制（如 RISC-V CMO 扩展~\cite{riscv2023cmo}）。在本处理器的单核场景下，\lstinline|fence.i| 足以保证正确性，且实现简洁。
+
+\section{DMA 与 DCache 的一致性}
+
+上一节讨论的“指令-数据一致性”限定在单个 CPU 内部 ICache 与 DCache 之间；当处理器外部存在第二个主设备时，一致性问题会从“同一 core 内两份缓存”扩展到“核心侧 DCache 与外部主设备所见的主存”之间。本文在移植 xv6 时接入了 virtio-disk 控制器，其数据块传输由 DMA 引擎自行完成：DMA 引擎与 CPU 一同挂载到 AXI4 Crossbar 上（见图~\ref{fig:soc-arch}），以周期窃取（cycle stealing）的方式共用通往 SDRAM 的访存通道——CPU 未占用总线的拍次由 DMA 填入，二者对 Crossbar 而言是对称的主设备。
+
+这一架构下 DMA 与 DCache 构成了两个能并发改写主存但彼此没有硬件协议同步的观察点，一致性缺口主要体现在两个对称方向：
+
+\begin{enumerate}
+  \item CPU $\to$ DMA 方向：xv6 在发起磁盘写请求前，先将待写入的数据填入驱动描述符指向的数据缓冲区；这条 \lstinline|sw| 经 DCache 采用的写回策略被吸收为脏行，尚未通过 AXI4 写通道落回 SDRAM。此时若 CPU 继续向 virtio 的 MMIO 通知寄存器写入 ``queue notify''，DMA 便会立即从 SDRAM 读取数据——读到的却是 DCache 背后的旧值，磁盘最终落盘的是错误内容。
+  \item DMA $\to$ CPU 方向：磁盘读完成后 DMA 将数据直接写入 SDRAM 的目标缓冲区，并通过中断或 virtio 的 used ring 通知 CPU。若 CPU 在此前曾访问过同一地址范围，DCache 中已缓存了旧数据，后续的 \lstinline|lw| 将命中 DCache 而根本看不到 DMA 刚刚写入的新数据，内核读到的依然是未更新前的内容。
+\end{enumerate}
+
+两条路径共同揭示的问题是：DMA 事务的可见边界是 SDRAM，而 CPU 侧的观察窗口是 DCache；只要中间的写回/失效步骤未被显式触发，两方观察到的主存快照就会错位。
+
+由于 xv6 的 virtio 驱动是本文自行移植并适配的，本文从软件侧对这一问题做了显式规避：在所有会触发或终结 DMA 事务的 MMIO 访问前后各插入一条 fence 指令。前端一侧的 fence 借助 DCache 主状态机的 \lstinline|flush_scan -> flush_wb| 路径（见图~\ref{fig:dcache-fsm}）将当前所有脏行写回 SDRAM，确保 CPU 已写入的数据对 DMA 可见；后端一侧的 fence 则同时起到作废 DCache 全部行的作用，迫使后续 \lstinline|lw| 重新从 SDRAM 读取 DMA 刚刚刷入的内容，从而覆盖 DMA $\to$ CPU 方向的可见性缺口。因 fence 的粒度是整个 DCache，配合 xv6 中 MMIO 访问频次不高的事实，这一软件方案在正确性上足以支撑 xv6 启动并稳定运行用户态程序，同时避免了在硬件上引入任何跨主设备的同步结构，复杂度代价最低。
+
+这套以全局 fence 换取正确性的策略并非没有代价：每次磁盘块传输都触发一次整 cache 刷写，DCache 的时间局部性完全失效，对磁盘访问密集型负载（如文件系统压测、Shell 启动）的性能表现会显著恶化。更理想的做法是在硬件侧引入跨主设备的缓存一致性协议，例如类似 MESI~\cite{papamarcos1984mesi} 的嗅探（snoop）机制：DMA 发起访存时，Crossbar 以 bus snooping 将事务广播至 DCache，由 DCache 根据本地 tag 与行状态决定是转发脏数据、降级本地状态还是直接放行；CPU 写命中共享行时主动发出 invalidate 广播，使外部主设备感知。这样软件就无需在每次 MMIO 前后粘贴 fence，一致性由硬件按行粒度自动维护，对缓存局部性的损伤也被限制在真正发生冲突的单个缓存行上。这一方向涉及 AXI4-ACE~\cite{arm2023ace} / CHI~\cite{arm2023chi} 等一致性互连协议与多主设备仲裁的重新设计，已超出本文单核教学目标的范围，留作未来工作。
+
+\section{本章小结}
+
+本章围绕缓存子系统展开，首先介绍了面向处理器核心的类 SRAM 总线协议，其 req-ack-done 三信号握手机制在保持接口简洁的同时支持读地址与读数据的流水分离；随后描述了基于 Diplomacy 框架的参数协商与 SRAMToAXI4 总线桥的设计，使 ICache 与 DCache 对内呈现 SRAM 接口、对外通过 AXI4 Burst 完成 refill 与 writeback。在替换策略方面，采用 Pseudo-LRU 算法以 3 位状态实现 4 路近似最近最少使用替换，兼顾硬件面积与替换效果。ICache 采用六状态有限状态机实现只读缓存逻辑，其中专用的 \lstinline|fence_drain| 状态将 \lstinline|fence.i| 与 inflight 的 AXI burst 的收敛完全封闭在缓存内部，使前端不再需要为 \lstinline|fence.i| 维护额外的握手或粘滞位；DCache 则通过七状态有限状态机支持写回策略、Write Buffer 优化及全缓存刷写。最后讨论了分离式 ICache 与 DCache 架构下的指令-数据一致性问题，说明了 \lstinline|fence.i| 指令通过 DCache 刷写加 ICache 失效两阶段操作保证自修改代码的正确执行；以及接入 virtio-disk 后 DMA 与 DCache 之间的可见性缺口，说明了本文以 MMIO 前后软件 fence 规避该问题的工程取舍，并指出引入类 MESI 的硬件一致性协议是更理想的长期方向。

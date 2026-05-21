@@ -1,0 +1,92 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{关键 IP 核设计与实现}
+
+SoC 系统中的存储控制器直接影响系统启动流程与运行期访存性能。本章围绕 Flash 控制器、PSRAM QSPI Master 控制器与 SDRAM 控制器三个关键 IP 核，分别阐述设计方案与验证方法。
+
+\section{Flash 控制器与 XIP 机制}
+
+Flash 存储器通过 SPI 协议接入系统。SPI Master 选用 OpenCores 开源 IP 核~\cite{opencores_simple_spi}，基于 Wishbone 总线接口~\cite{wishbone_b4}，本课题使用 Chisel 实现了 APB-to-Wishbone 的薄封装层以接入 SoC 的 APB 域。
+
+系统为 Flash 提供两种访问方式。第一种是命令方式：通过 APB Fanout 经 SPI Arbiter 直接读写 SPI 控制器寄存器，适用于 Bootloader 阶段的 Flash 编程与配置操作，如代码~\ref{lst:flash-read-sw} 所示。第二种是 XIP（eXecute In Place）方式：XIP 控制器将处理器对 Flash 地址窗口的 MMIO 读请求自动转换为底层 SPI 命令字序列（如读命令、地址发送与数据回传），从而以硬件方式完成“取指驱动”，其状态机流程如图~\ref{fig:xip-fsm} 所示。引入该机制的动机是避免启动阶段的“鸡生蛋”死锁：若程序存放在 Flash 中而访问 Flash 又依赖软件驱动，则驱动本身也需要先从 Flash 取出，系统将无法启动。通过 XIP 的硬件读通路，处理器无需先运行 SPI 软件驱动即可直接从 Flash 取指执行。两种方式通过 SPI Arbiter 共享物理 SPI 控制器，XIP 具有更高的仲裁优先级。
+
+\begin{lstlisting}[language=C,caption={SPI Flash 软件轮询读取实现示例},label={lst:flash-read-sw}]
+void spi_wait_done(void) {
+  while (REG32(SPI_CTRL) & SPI_CTRL_GO)
+    ;
+}
+void flash_select(void) { REG32(SPI_SS) = FLASH_SS; }
+void flash_deselect(void) { REG32(SPI_SS) = 0; }
+
+// [ 0, cmd, addr, data ]
+// high                low
+// Tx3                 Tx0
+// Rxx 与 Txx 其实是同一个寄存器
+uint32_t flash_read_word(uint32_t addr) {
+  flash_select();
+  REG32(SPI_TX1) = (FLASH_CMD_READ << 24) | (addr & 0x00FFFFFF);
+  REG32(SPI_TX0) = 0;
+  REG32(SPI_CTRL) = SPI_CTRL_CHAR_LEN(64) | SPI_CTRL_ASS
+                  | SPI_CTRL_GO;
+  spi_wait_done();
+  uint32_t data = REG32(SPI_RX0);
+  flash_deselect();
+  return data;
+}
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{xip-fsm.png}
+  \caption{APB XIP 控制器状态转移图}
+  \label{fig:xip-fsm}
+\end{figure}
+
+如图~\ref{fig:xip-fsm} 所示，XIP 读事务从 \lstinline|Passthrough| 状态进入后，依次经历 \lstinline|SS| 选通、\lstinline|TX1/TX0| 发送命令与地址、\lstinline|CTRL| 启动传输、\lstinline|Poll| 轮询完成、\lstinline|RX| 回读数据、\lstinline|DeSSel| 取消片选，最终在 \lstinline|Respond| 状态向上游 APB 返回读结果。
+
+在仿真验证方面，参照 Winbond W25Q128JVSIQ 手册中的时序与命令字规范，实现了 Flash 芯片的行为级仿真模型，并通过类 UVM 的验证测试确保协议兼容性。该仿真模型的协议正确性意味着上板或流片时可直接对接物理 Flash 芯片。
+
+\section{PSRAM QSPI Master 控制器}
+
+PSRAM 通过 QSPI/QPI 协议接入系统，用于提供主存扩展。本课题参考 OpenCores SPI 设计思路，使用 Chisel 重新实现了完整的 QSPI Master 控制器，采用 APB 接口，支持从标准 QSPI 模式切换到 QPI 模式（四线半双工）。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{qspi-arch.png}
+  \caption{QSPI Master 控制器内部架构}
+  \label{fig:qspi-arch}
+\end{figure}
+
+如图~\ref{fig:qspi-arch} 所示，控制器内部由三个子模块构成：状态机（FSM）负责协调 APB 总线事务与 SPI 传输流程；时钟分频器（Clgen）根据配置的分频系数生成 SPI 时钟，并向移位寄存器提供采样与驱动边沿信号；移位寄存器（Shift）在 Clgen 提供的时钟边沿驱动下完成数据的串并转换。FSM 通过 go 信号启动一次传输，Shift 在传输完成后通过 tipDone/last 信号通知 FSM，FSM 随即向 APB 侧返回 pready 完成握手。
+
+在仿真验证方面，参照 ISSI IS66WVS4M8ALL/BLL 手册~\cite{issi_is66wvs4m8} 中的命令字与时序规范，实现了 PSRAM 颗粒的行为级仿真模型\footnote{项目仓库：\url{https://github.com/KINGFIOX/spi-master}}，用于在 Verilator 仿真环境中验证 QSPI 控制器的协议正确性。
+
+\section{SDRAM 控制器}
+
+为提供较大容量的主存储空间，SDRAM 控制器挂载在一级 AXI4 Crossbar 上。本课题参考 ultraembedded 开源的 SDRAM 控制器~\cite{ultraembedded_sdram}（Verilog 实现），使用 Chisel 进行了完整重写\footnote{项目仓库：\url{https://github.com/KINGFIOX/core_sdram_axi4}}，以实现参数化扩展并与 SoC 其他 Chisel 模块统一维护。重写后的控制器利用 Chisel 内置的 Queue 模块对请求和响应通路进行解耦，流水化程度高于原始 Verilog 版本。
+
+控制器支持位扩展与字扩展两种组织方式。位扩展模式下，将两颗 SDRAM 芯片与同一个 SDRAM Core 组成一个 Bank，对同一行/列命令进行同步激活与访问，将两颗粒各自输出的 16bit 数据在控制器侧拼接为 32bit 数据通路。字扩展模式下，两个 SDRAM Core 以低位交叉（Low-order Interleaving）方式并联，按地址低位将请求映射到奇偶 Core：一个 Core 处理偶字，另一个 Core 处理奇字。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{sdram-interleave.png}
+  \caption{SDRAM 控制器字扩展与低位交叉架构}
+  \label{fig:sdram-interleave}
+\end{figure}
+
+如图~\ref{fig:sdram-interleave} 所示，图中的中间模块本质上是 AXI4 到 SDRAM Core 接口的事务桥。该桥将 AXI4 总线事务转换为 Core 请求信号，并依据地址位（\lstinline|addr(2)|）在两个 Core 间进行路由；请求被目标 Core 接收后，将 Core 选择信息写入 pending FIFO，后续再按 FIFO 记录回收对应 Core 的 \lstinline|ack/readData/error| 响应并返回 AXI4 侧。该机制既支持低位交叉并发访问，也保证了响应回传与请求顺序的一致性。
+
+在仿真验证方面，参照 Micron MT48LC16M16A2 手册~\cite{micron_mt48lc16m16a2} 实现了 SDRAM 颗粒的行为级仿真模型，准确模拟了 ACTIVATE、READ、WRITE、PRECHARGE、AUTO REFRESH 等命令的时序行为。验证平台采用基于 SystemC~\cite{ieee2011systemc} 的 UVM 架构，整体框图如图~\ref{fig:sdram-tb} 所示。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{sdram-testbench.png}
+  \caption{SDRAM AXI4 Testbench 硬件框图}
+  \label{fig:sdram-tb}
+\end{figure}
+
+该测试平台由四个模块组成。tb\_mem\_test（SEQ）作为 Sequencer 负责产生测试激励，包括随机地址、数据长度与突发模式等参数，并通过 tb\_driver\_api 接口传递给 tb\_axi4\_driver（DRIVER）。tb\_axi4\_driver 将测试激励转换为符合 AXI4 协议的总线事务，通过 axi\_m（axi4\_master）接口向 DUT 发起 AW/W/AR 通道请求，并从 axi\_s（axi4\_slave）接口接收 B/R 通道响应。sdram\_axi（DUT）即待测的 SDRAM 控制器，接收 AXI4 事务并将其转换为 SDRAM 物理接口时序，通过 sdram\_io\_m（sdram\_io\_master）接口驱动下游存储模型。tb\_sdram\_mem（TB\_MEM）为 SDRAM 芯片的行为级仿真模型，通过 sdram\_io\_s（sdram\_io\_slave）接口响应控制器发出的命令序列。
+
+\section{本章小结}
+
+本章介绍了 SoC 中三个关键存储控制器的设计与验证。Flash 控制器通过 SPI Arbiter 同时支持命令访问与 XIP 直接取指执行；PSRAM QSPI Master 以 FSM + Clgen + Shift 三模块架构实现 QSPI/QPI 协议兼容；SDRAM 控制器通过 Chisel 重写实现了流水化与低位交叉字扩展。三个控制器均配有行为级仿真模型并通过协议级验证，具备直接对接物理芯片的能力。

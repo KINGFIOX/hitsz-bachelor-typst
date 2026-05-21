@@ -1,0 +1,174 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{仿真平台}
+
+处理器设计的正确性高度依赖仿真验证。本章介绍基于 Verilator 与 C++20 构建的仿真平台，涵盖简易调试器、执行追踪、差分测试、快照回放及外设可视化等功能，为处理器开发全流程提供调试与验证支撑。
+
+\section{仿真平台整体架构}
+
+仿真平台以 C++20 编写，遵循 Google C++ Style Guide~\cite{google_cpp_styleguide} 编码规范，使用 CMake 构建系统管理依赖。整体架构如图~\ref{fig:sim-arch} 所示，由以下核心组件构成：
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{sim-arch.png}
+  \caption{仿真平台整体架构}
+  \label{fig:sim-arch}
+\end{figure}
+
+Verilator 将 Chisel 生成的 Verilog 网表编译为 C++ 仿真模型 \lstinline|VNPCSoC|。\lstinline|VerilatorCpu| 封装该模型并驱动时钟信号，通过 Chisel 的 probe 机制从 RTL 中导出 PC、通用寄存器、CSR、提交有效信号等观测点，供上层调试与比对使用。\lstinline|ScoreBoard| 是差分测试与追踪记录的核心枢纽：每条指令提交后，它同步驱动参考模型 \lstinline|SpikeCpu| 执行同一条指令，比较两侧架构状态，并将执行信息写入各类 Tracer 的环形缓冲区。\lstinline|Sdb|（Simple Debugger）提供交互式调试界面，支持单步执行、断点、监视点与表达式求值。命令行标志 \lstinline|--batch| 可使仿真在无人值守模式下全速运行，\lstinline|--wave| 可按需开启波形记录。
+
+\section{简易调试器}
+
+Sdb 提供类 GDB 的交互式命令行界面，基于 GNU Readline 实现命令补全与历史记录。支持的调试命令包括：
+
+\begin{table}[H]
+  \centering
+  \caption{Sdb 调试命令列表}
+  \label{tbl:sdb-cmds}
+  \begin{tabular}{ccl}
+    \toprule
+    命令 & 缩写 & 功能 \\
+    \midrule
+    \lstinline|continue| & \lstinline|c| & 继续执行直到断点或程序结束 \\
+    \lstinline|step| & \lstinline|si| & 单步执行 N 条指令（默认 1） \\
+    \lstinline|info r| & & 显示所有通用寄存器与 PC \\
+    \lstinline|info w| & & 列出所有监视点 \\
+    \lstinline|print| & \lstinline|p| & 对表达式求值并输出 \\
+    \lstinline|examine| & \lstinline|x| & 查看指定地址处的内存内容 \\
+    \lstinline|watch| & \lstinline|w| & 添加监视点，表达式值变化时暂停 \\
+    \lstinline|break| & \lstinline|b| & 在指定地址设置断点 \\
+    \lstinline|delete| & \lstinline|d| & 删除指定监视点 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{表达式求值引擎}
+
+Sdb 内置了一个完整的表达式求值引擎，使用 Flex~\cite{flex_manual} 进行词法分析、Bison~\cite{bison_manual} 进行语法分析。该引擎支持以下语法特性：
+
+\begin{itemize}
+  \item 字面量：十进制整数、十六进制整数（\lstinline|0x| 前缀）。
+  \item 寄存器引用：\lstinline|$pc|、\lstinline|$ra|、\lstinline|$sp| 等，通过 \lstinline|AbstractCpu::value()| 接口读取当前 CPU 状态。
+  \item 算术运算：\lstinline|+|、\lstinline|-|、\lstinline|*|、\lstinline|/|。
+  \item 比较运算：\lstinline|==|、\lstinline|!=|、\lstinline|<|、\lstinline|<=|、\lstinline|>|、\lstinline|>=|。
+  \item 逻辑运算：\lstinline!&&!、\lstinline!||!。
+  \item 一元运算：负号 \lstinline|-|、解引用 \lstinline|*addr|（读取指定地址的内存值）。
+\end{itemize}
+
+表达式求值贯穿调试器的多个功能：\lstinline|print| 命令直接求值输出，\lstinline|examine| 命令使用表达式计算起始地址，\lstinline|watch| 命令在每步执行后重新求值以检测变化。
+
+\section{执行追踪}
+
+仿真平台实现了四类追踪器（Tracer），均基于泛型环形缓冲区 \lstinline|RingBuf<T>| 存储最近的追踪记录。环形缓冲区采用固定容量、覆写最旧记录的策略，在常数内存开销下保留最近的执行历史，供错误发生时回溯分析：
+
+\begin{enumerate}
+  \item ITrace(Instruction Tracer) 记录每条提交指令的 PC、机器码与反汇编文本。反汇编由 Spike 的内置反汇编器生成，保证与参考模型的指令解读一致。当 difftest 失败时，ITrace 的输出可直接定位出错指令及其上下文。
+  \item MTrace(Memory Tracer) 记录所有非 MMIO 的 load/store 操作，包括 PC、访存方向（读/写）、物理地址、数据值与访问宽度。对于 load 指令，数据值取自 DUT 的内存模型；对于 store 指令，数据值取自参考模型的寄存器。MTrace 对缓存一致性问题与访存相关 bug 的定位尤为有效。
+  \item DTrace(Device Tracer) 专门记录 MMIO 区域的访问，格式与 MTrace 相同但独立存储。MMIO 访问具有副作用（如串口发送、定时器读取），其正确性无法通过简单的内存比对验证，因此单独追踪便于开发者审查外设交互序列。
+  \item FTrace(Function Tracer) 从 ELF 文件的符号表中加载函数名与地址映射，在运行时根据指令助记符识别函数调用（\lstinline|jal|/\lstinline|jalr| 且 \lstinline|rd=ra|）与返回（\lstinline|ret|），维护调用深度计数器，生成带缩进的调用链记录。FTrace 对操作系统启动流程的调试尤为有用：当程序陷入死循环或异常跳转时，调用链能清晰展示控制流的偏离点。
+\end{enumerate}
+
+\section{差分测试}\label{sec:difftest}
+
+差分测试（Differential Testing，Difftest）\cite{you2025difftest} 是本仿真平台最核心的验证手段。
+
+\subsection{理论基础：处理器的双层状态机模型}
+
+从抽象层次看，处理器本质上是一个状态机，其状态可分为两个层次：
+
+\begin{enumerate}
+  \item ISA 状态（Instruction Set Architecture State）：程序员可见的架构状态，包括程序计数器 PC、32 个通用寄存器、CSR 寄存器以及内存内容。ISA 规范严格定义了每条指令对这些状态的转移规则，任何符合规范的实现——无论是单周期、多周期还是乱序流水线——在执行同一条指令后都必须产生相同的 ISA 状态。
+  \item 物理状态（Physical/Microarchitectural State）：硬件实现的微架构状态，包括流水线寄存器、重排序缓冲区、缓存行、分支预测器历史等。这些状态对程序员不可见，不同微架构实现之间存在本质差异。
+\end{enumerate}
+
+程序员编写软件时只需关心 ISA 状态——这正是 ISA 作为硬件与软件之间契约的核心含义。即便存在诸如 \lstinline|fence.i| 这样涉及微架构行为的指令，其语义仍然是在 ISA 层面定义的（“使后续取指看到此前的数据写入”），而非暴露具体的缓存实现细节。
+
+基于这一认识，差分测试的思路自然浮现：如果存在一个公认正确的 ISA 状态机作为参考，让待验证的处理器（DUT）与之逐条指令执行同一程序，每步比较 ISA 状态，若始终一致，即可断言 DUT 的实现在 ISA 语义上是正确的。RISC-V 基金会维护的官方指令集模拟器 Spike~\cite{spike2026} 正是这样一个标准的 ISA 参考状态机：它严格按照 RISC-V 规范实现每条指令的状态转移，不涉及任何微架构细节，是差分测试的理想参考模型。
+
+\subsection{参考模型集成}
+
+本平台以静态链接方式集成 Spike（\lstinline|spike::riscv| 库），而非通过动态库加载，使仿真平台的部署更为简洁。\lstinline|SpikeCpu| 类封装了 Spike 的 \lstinline|sim_t|、\lstinline|processor_t| 与 \lstinline|state_t|，并按照 SoC 的实际地址映射（Flash 位于 \lstinline|0x3000_0000|、SDRAM 位于 \lstinline|0x8000_0000| 等）初始化 Spike 的内存布局，确保两侧的初始 ISA 状态完全一致。
+
+\subsection{比对流程}
+
+差分测试的执行流程由 \lstinline|ScoreBoard::scoreboard()| 驱动，每条指令提交后执行以下步骤：
+
+\begin{enumerate}
+  \item DUT 侧：\lstinline|VerilatorCpu::step()| 驱动时钟直到 \lstinline|probe_valid| 信号有效，表示一条指令已提交。通过 probe 信号读取 DUT 的 PC、下一 PC（\lstinline|dnpc|）、机器码、通用寄存器与 CSR——这些正是 ISA 状态的完整快照。
+  \item 参考模型侧：调用 \lstinline|SpikeCpu::step()| 执行同一条指令，Spike 按照 ISA 规范更新其内部状态。
+  \item ISA 状态比对：\lstinline|check_regs()| 逐一比较 DUT 与 Spike 的下一 PC、32 个通用寄存器（\lstinline|x1|--\lstinline|x31|）以及关键 CSR（\lstinline|mtvec|、\lstinline|mepc|、\lstinline|mcause|、\lstinline|mtval|、\lstinline|mstatus| 等），任一不匹配即判定 DUT 的 ISA 行为偏离规范。
+\end{enumerate}
+
+\subsection{MMIO 特殊处理}
+
+MMIO 访问具有副作用且地址空间在 DUT 与 Spike 之间不一定对等，因此需要特殊处理。当 DUT 的 \lstinline|is_mmio| 信号有效时，ScoreBoard 不调用 \lstinline|golden_.step()|，而是：
+
+\begin{itemize}
+  \item 对 MMIO load：从 DUT 的目的寄存器读取实际值，写入 Spike 对应寄存器，使两侧对齐。
+  \item 对 MMIO store：记录到 DTrace，不修改 Spike 内存。
+  \item 最后将 Spike 的 PC 强制设置为 DUT 的 \lstinline|dnpc|，跳过 Spike 对该指令的执行。
+\end{itemize}
+
+这种“DUT 主导、参考模型跟随”的策略确保了 MMIO 访问不会导致两侧状态分叉。
+
+\subsection{失败诊断}
+
+当 difftest 检测到不一致时，\lstinline|ScoreBoard::dump_traces()| 按序输出四类 Tracer 的环形缓冲区内容，并以表格形式并排展示 DUT 与 Spike 的寄存器与 CSR 状态，用 \lstinline|<--- MISMATCH| 标记不一致项。开发者可据此快速定位出错指令及其影响的架构状态。
+
+\section{LightSSS 快照回放}
+
+在长时间仿真过程中，某些 bug（如总线死锁、缓存状态机卡死）可能在数百万周期后才触发，此时重新从头仿真并开启波形记录的开销极为高昂。LightSSS（Lightweight Simulation Snapshot）利用操作系统的 \lstinline|fork()| 系统调用实现轻量级快照功能：
+
+\begin{enumerate}
+  \item 周期性快照：仿真每执行一定数量的指令后，调用 \lstinline|fork()| 创建子进程。由于 \lstinline|fork()| 采用写时复制（Copy-on-Write）语义，快照的创建几乎零开销——父子进程共享相同的物理内存页，仅在后续写入时才触发页复制。
+  \item 异常检测：当仿真检测到异常状态（如 \lstinline|VerilatorCpu::step()| 超过最大周期数仍未收到 \lstinline|probe_valid|，表明总线可能死锁），触发快照回放机制。
+  \item 死亡回放：系统回退到最近一个 checkpoint 对应的子进程，在该快照上重新执行，但此次开启波形记录（\lstinline|--wave|）与全部 Tracer，以最小的时间窗口捕获 bug 触发前后的完整信息。
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{lightsss.png}
+  \caption{LightSSS 快照回放原理示意}
+  \label{fig:lightsss}
+\end{figure}
+
+如图~\ref{fig:lightsss} 所示，主进程每执行 N 条指令后调用 \lstinline|fork()| 创建一个自我阻塞的子进程作为快照，并维护一个固定大小的进程队列，当快照数量超出上限时淘汰最早的快照。当主进程检测到仿真出错时，唤醒最近的快照子进程，该子进程开启波形记录并重新运行到出错点，完成“死亡回放”后通知父进程回收资源。这一机制的关键优势在于：正常仿真时无需开启波形记录（可提升 5--10 倍仿真速度），仅在 bug 触发时才回放并记录，大幅缩小了仿真日志与波形文件的体积。
+
+\section{NVBoard 外设可视化}\label{sec:nvboard-vis}
+
+仿真平台集成了 NVBoard(NJU Virtual Board) 虚拟开发板，通过将 RTL 顶层的 GPIO、七段数码管、PS2 键盘、VGA 显示与 UART 串口等外设信号绑定到 NVBoard 的虚拟引脚，在仿真过程中实时渲染外设状态。通过命令行标志 \lstinline|--nvboard| 启用。
+
+对于 UART 输出，仿真平台实现了 \lstinline|UartTxDecoder| 模块，在仿真时钟域内按 8N1（8bit data, no parity, 1bit stop）格式解码串口帧。由于仿真平台采用单时钟域，“与裸机程序约定相同波特率”等价于“约定相同分频系数（\lstinline!div = (dlm << 8) | dll!）”。波特率与分频系数的换算公式如下：
+
+\[
+\mathrm{Divisor} = \frac{\mathrm{system\ clock\ frequency}}{16 \times \mathrm{desired\ baud\ rate}}
+\]
+
+软件侧 UART 初始化如代码~\ref{lst:uart-init} 所示。这里 soc 侧的分频系数 \lstinline|div = 1|，只需让 NVBoard 满足相同的采样频率即可正常收发字符。
+
+\begin{lstlisting}[language=C,caption={UART 初始化与波特率分频配置示例},label={lst:uart-init}]
+static void uart_init(void) {
+  volatile char *lcr = (volatile char *)UART_LCR;
+  volatile char *dll = (volatile char *)UART_DLL;
+  volatile char *dlm = (volatile char *)UART_DLM;
+  volatile char *fcr = (volatile char *)UART_FCR;
+  *lcr = LCR_DLAB;
+  *dll = 0x01; // Divisor Latch Low
+  *dlm = 0x00; // Divisor Latch High
+  *lcr = LCR_8N1; // 8N1, disable setting BAUD rate
+  *fcr = FCR_FIFO_ENABLE | FCR_RX_RESET | FCR_TX_RESET;
+}
+\end{lstlisting}
+
+图~\ref{fig:nvboard} 展示了 NVBoard 虚拟开发板的运行截图，整个程序运行在 RT-Thread~\cite{yi2023rtthread} 实时操作系统之上。左上角为 GPIO 区域，七段数码管显示学号后 8 位；右上角为 UART 串口终端与 PS/2 键盘回显，可见 RT-Thread 的 msh（Mini Shell）命令行界面及其内置命令列表；左下角为 VGA 显示区域，正在运行贪吃蛇程序；右下角为 PS/2 虚拟键盘，用于向处理器发送按键扫描码。各外设在仿真过程中实时更新，为软硬件协同调试提供直观的可视化反馈。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{nvboard.jpg}
+  \caption{NVBoard 虚拟开发板运行 RT-Thread 操作系统上的贪吃蛇程序}
+  \label{fig:nvboard}
+\end{figure}
+
+\section{本章小结}
+
+本章介绍了基于 Verilator 与 C++20 构建的仿真验证平台。该平台以 Google C++ Style Guide 为编码规范，围绕“调试—追踪—比对—回放—可视化”五个维度构建了完整的验证工具链：Sdb 简易调试器提供交互式单步执行与断点调试，内置基于 Flex/Bison 的表达式求值引擎；四类 Tracer（ITrace、MTrace、DTrace、FTrace）基于环形缓冲区记录指令、访存、MMIO 与函数调用历史；差分测试以 Spike 为参考模型，逐条指令比对架构状态，MMIO 访问采用 DUT 主导策略保持两侧同步；LightSSS 利用 \lstinline|fork()| 写时复制实现轻量级快照，在 bug 触发时自动回放并开启波形记录；NVBoard 集成提供 GPIO、UART、VGA 等外设的实时可视化。上述工具的协同使用，使得从功能验证到性能调优的全流程均有据可查、有迹可循。

@@ -1,0 +1,58 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter[绪论]{绪~~论}
+
+\section{研究背景、目的和意义}
+
+\subsection{研究背景}
+
+RISC-V 作为开源、模块化、可扩展的指令集架构~\cite{patterson2017riscv}，正在从学术研究走向产业化部署。华为发布了基于 RISC-V 的 Hi3861 开发系统~\cite{huawei2021hi3861}，NVIDIA 于 2024 年出货超十亿颗 RISC-V 核心~\cite{nvidia2024riscv}，国内政策层面亦明确鼓励 RISC-V 生态建设~\cite{china2025riscv}。相较于传统封闭指令集，RISC-V 在授权成本、生态开放性和可定制能力方面具有显著优势，为高校和科研机构开展处理器全栈设计提供了可行路径。与此同时，面向高性能场景的处理器普遍依赖乱序执行技术来提升指令级并行性和流水线吞吐率，因此围绕 RISC-V 乱序处理器开展研究具有明确的工程价值与教学价值。
+
+从教学与科研实践看，当前公开资料中存在“简单顺序核容易入门、工业级乱序核复杂度过高”的鸿沟，不利于学习者系统理解乱序执行关键机制。蜂鸟 E203~\cite{hbirdv2} 等开源核聚焦于顺序执行，而 SonicBOOM~\cite{zhao2020sonicboom} 与香山~\cite{wang2023xiangshan} 等高性能乱序核的复杂度远超教学场景。国内已有多部教材对顺序流水线处理器设计进行了系统介绍~\cite{lei2014cpu}~\cite{wang2021cpudesign}，姚永斌的《超标量处理器设计》\cite{yao2014superscalar} 则对乱序微架构理论进行了深入讲解。然而在“理论教材”与“工业级开源核”之间，缺少一款规模适中、结构清晰、可在课堂与个人项目中完整复现的乱序处理器实现。
+
+\subsection{研究目的}
+
+针对上述教学与工程实践之间的断层，本文的研究目的是：以可实现、可验证、可复现为导向，设计并实现一款面向教学与工程过渡场景的 RISC-V 单发射乱序处理器及配套 SoC 平台，并通过统一的仿真验证框架对其功能正确性与性能表现进行系统评估。具体而言，本文希望达成以下目标：第一，在微架构层面打通“前端取指—分支预测—乱序发射—延迟执行—顺序提交”的完整数据通路，使学习者能够从单一代码库中观察到乱序流水线各关键机制的工作过程；第二，在系统层面提供处理器核以外的总线、存储控制器与外设支撑，使所设计的处理器具备运行真实操作系统的能力；第三，在验证层面构建以差分测试为核心、配合追踪与快照回放的仿真平台，确保所有结论可由实验数据支撑，而非仅停留于设计描述。
+
+\subsection{研究意义}
+
+从产业需求看，掌握高性能处理器核心微架构的自主设计能力，是推进自主可控芯片技术体系建设的重要基础~\cite{csia2024report}。本文围绕 RISC-V 乱序处理器开展的全栈设计与验证工作，对填补“教学顺序核”与“工业乱序核”之间的实现空白具有直接的教学价值；同时，本文所建立的“微架构 + SoC + 仿真验证”一体化实现路径，可为高校体系结构课程、个人项目以及后续的乱序核研究提供可复用的工程参考与实验基础。
+
+\section{国内外研究现状}
+
+\subsection{乱序执行理论框架的形成与完善}
+
+20 世纪 90 年代是现代乱序处理器理论体系系统化的关键时期。Smith 与 Sohi 在 1995 年的综述~\cite{smith1995superscalar} 中指出，高性能超标量处理器的核心任务是在保持顺序语义可见性的前提下，将程序中的潜在并行性转化为硬件可执行的并行操作。该综述将处理流程归纳为取指与分支处理、寄存器相关性分析、动态发射与执行、访存数据通信、按程序顺序提交与精确中断支持等关键阶段，为后续乱序微架构设计提供了统一分析框架。
+
+\subsection{精确异常的实现路径}
+
+为在乱序执行条件下保持体系结构可见状态的顺序一致性，精确异常机制是核心设计点。典型实现路径包括：基于重排序缓冲区（ROB, Reorder Buffer）的顺序提交方案~\cite{smith1988precise}（在提交点统一更新架构状态）；基于 walk-back 的恢复方案（异常时按记录回退未提交状态）；基于 checkpoint 的快速恢复方案~\cite{hwu1987checkpoint}（保存关键映射快照并在错误路径上快速回滚）。三类方案分别在硬件开销、恢复时延与实现复杂度之间进行权衡。
+
+\subsection{寄存器重命名机制与 WAW/WAR 消解}
+
+为消除 WAW/WAR 等伪相关并释放指令级并行性，重命名机制形成了多条技术路线。第一类是 ROB-based 方案，结果先写入 ROB 项并在提交时回写架构寄存器；第二类是 Arch Register File + Future File 方案，将提交态与推测态分离管理；第三类是统一物理寄存器文件（PRF, Physical Register File）方案，通过寄存器别名表（RAT, Register Alias Table）维护映射关系并在提交后回收旧物理寄存器。统一 PRF 方案因扩展性与实现弹性较好，在 Alpha 21264~\cite{kessler1999alpha}、MIPS R10000~\cite{yeager1996r10000} 等经典乱序处理器中应用广泛。
+
+\subsection{分支预测与前端指令供应能力提升}
+
+分支预测能力直接决定前端取指带宽的有效利用率。相关技术从静态预测与一/二位饱和计数器，发展到两级自适应预测（如 GShare、GSelect）\cite{mcfarling1993combining}，再到混合预测与锦标赛选择机制~\cite{razilov2024tage}。同时，分支目标缓冲器（BTB, Branch Target Buffer）、返回地址栈（RAS, Return Address Stack）与间接跳转目标缓存（IJTC, Indirect Jump Target Cache）等结构被联合用于覆盖条件分支、函数返回与间接跳转场景。随着乱序窗口扩大与流水线加深，分支预测准确率与误判恢复代价已成为影响处理器实际吞吐率的关键因素。
+
+\subsection{开源 RISC-V 与 Chisel 驱动下的新发展}
+
+近年来，RISC-V 开源生态显著降低了高性能处理器研究的实现门槛，推动了乱序处理器从“理论可讲”向“工程可复现”转变。以 BOOM~\cite{zhao2020sonicboom}、香山~\cite{wang2023xiangshan} 等项目为代表的开源实践展示了乱序处理器在现代开源工具链下的系统化实现路径，也为后续研究提供了可参考的架构与验证经验。
+
+同时，Chisel~\cite{bachrach2012chisel} 等硬件构造语言的发展，使复杂微架构与系统级芯片（SoC, System on Chip）集成的参数化设计、模块复用和工程维护能力明显提升。与之配套的差分测试方法~\cite{you2025difftest}（如基于 Spike~\cite{spike2026} 的逐指令对比）进一步提高了功能验证效率，形成了“设计—验证—迭代”闭环。上述新发展使得在课程与科研场景中实现具备完整特权架构、缓存与虚拟内存支持的乱序处理器成为现实可行的工程目标。
+
+\section{本文的主要研究内容}
+
+围绕上述理论与工程发展脉络，本文以“RISC-V 指令集乱序处理器设计”为核心，针对教学与工程过渡场景下的乱序处理器实现需求，开展以下研究内容：
+
+\begin{enumerate}
+  \item 研究面向乱序处理器的 SoC 系统级集成方案，建立处理器核、总线互连、多层次存储与外设协同工作的系统级平台架构。
+  \item 研究基于 Chisel~\cite{bachrach2012chisel} 的关键知识产权核（IP, Intellectual Property Core）参数化实现方法，针对 SDRAM 控制器、Flash 控制器（串行外设接口（SPI, Serial Peripheral Interface）模式，配合就地执行（XIP, eXecute In Place）控制器实现直接取指执行）与 PSRAM 控制器（支持四线串行外设接口（QSPI, Quad SPI）与四线并行 I/O（QPI, Quad Peripheral Interface）模式及相互切换）展开存储控制器设计研究。
+  \item 研究单发射乱序处理器微架构设计方法，重点围绕统一物理寄存器重命名方案、乱序执行与顺序提交流水线、以及精确异常支持机制展开。
+  \item 研究基于虚拟索引物理标记（VIPT, Virtually Indexed Physically Tagged）\cite{cekleov1997vipt} 结构且采用伪最近最少使用（PLRU, Pseudo Least Recently Used）替换策略的指令缓存（ICache, Instruction Cache）与数据缓存（DCache, Data Cache）设计方法。
+  \item 研究 RISC-V M/S/U 三级特权架构与 Sv39 虚拟内存机制~\cite{riscv2024priv} 在所设计处理器上的实现路径，使其具备运行操作系统所需的体系结构支持能力。
+  \item 研究 NVBoard（NJU Virtual Board）\cite{nvboard2024} 在仿真平台中的集成方法，实现外设的可视化交互。
+  \item 研究 xv6~\cite{cox2024xv6} 教学操作系统在所设计处理器上的移植与运行验证方法。
+  \item 研究基于混合性能计数器（RTL 寄存器 + DPI-C 事件）的多维度性能评估方法，依托 MicroBench~\cite{microbench2024}、Dhrystone~\cite{weicker1984dhrystone} 与 CoreMark~\cite{coremark2009} 三组负载，对所设计处理器进行 IPC、缓存命中率、分支预测命中率等指标的定量分析。
+\end{enumerate}

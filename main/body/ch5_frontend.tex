@@ -1,0 +1,174 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{前端：取指单元与动态分支预测设计}
+
+前端负责为后端持续供应有效指令，其内部由取指单元（IFU, Instruction Fetch Unit）与分支预测单元（Predict）两个子模块组成。IFU 采用 4 段流水结构完成地址翻译与 ICache 访问，Predict 对当前取到的指令进行轻量译码并输出预测的下一条指令 PC，两者协同工作形成“取指—预测—下一轮取指”的闭环。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{frontend-arch.png}
+  \caption{前端内部架构与外部接口}
+  \label{fig:frontend-arch}
+\end{figure}
+
+如图~\ref{fig:frontend-arch} 所示，IFU 通过 ICache 端口和 PTW(page table walker) 端口分别访问指令缓存与页表，取到的指令与 PC 传递给 Predict 进行分支预测，Predict 返回预测的下一条 PC 供 IFU 在下一轮取指时使用。IFU 的输出（指令、PC、预测信息）经指令队列送入后端。后端在分支预测失败或异常恢复时，通过 redirect 信号更新 Predict 的预测器状态，并通过 flush/dnpc 信号使 IFU 从正确地址重新取指。
+
+\section{取指单元（IFU）设计}\label{sec:ifu-pipeline}
+
+\subsection{总体架构}
+
+为在保持单发射单提交约束的前提下充分释放后端乱序执行潜能，IFU 采用 F0、F1、F2、Fp、F3 的流水结构，其设计目标是在直线代码上达到稳态 1 IPC，taken 分支仅付出 2 个气泡周期。整体架构与各段职责如图~\ref{fig:ifu-pipeline} 所示。整个 IFU 由顶层模块与四个子模块（\lstinline|F1Stage|、\lstinline|F2Stage|、\lstinline|FpStage|、\lstinline|F3Stage|）构成，分别承担 PC 生成、地址翻译、ICache 控制、分支预测与后端交付的职责。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{ifu-pipeline.png}
+  \caption{4 段流水化 IFU 的整体架构}
+  \label{fig:ifu-pipeline}
+\end{figure}
+
+除 F2 $\to$ Fp 这一路外，其余子模块均通过 \lstinline|PipelineConnect| 串联。\lstinline|PipelineConnect| 本质上是一个参数化流水级：它在上下游之间插入带握手的 valid 寄存器和 \lstinline|bits| 锁存寄存器；当 \lstinline|thisIn.ready| 为高时，接收上一拍的 \lstinline|prevOut.valid / bits|；当 \lstinline|flush| 有效时，清零 valid 并丢弃当前槽位。稳态下，流水按 \lstinline|ready / valid| 协议持续推进；发生 \lstinline|flush| 时，可在同一拍清空所有中间 slot。实现上通过 Scala 泛型参数 \lstinline|T <: Data| 抽象载荷类型，使其既能承载 IFU 内部的 \lstinline|F1In|、\lstinline|F2In|、\lstinline|F3In| 等 Bundle，也能复用于后端分派、发射与执行阶段，从而保持全项目流水接口风格一致：
+
+\begin{lstlisting}[language=Scala,caption={参数化流水段 PipelineConnect 的实现},label={lst:pipeline-connect}]
+object PipelineConnect {
+  def apply[T <: Data](
+      prevOut: DecoupledIO[T],
+      thisIn:  DecoupledIO[T],
+      flush:   Bool
+  ): Unit = {
+    val valid = RegInit(false.B)
+    when(flush) {
+      valid := false.B
+    }.elsewhen(thisIn.ready) {
+      valid := prevOut.valid
+    }
+    prevOut.ready := thisIn.ready
+    thisIn.bits
+      := RegEnable(prevOut.bits, prevOut.valid && thisIn.ready)
+    thisIn.valid  := valid
+  }
+}
+\end{lstlisting}
+
+F0 位于 IFU 顶层，不作为独立子模块存在，只维护架构 PC 寄存器 \lstinline|pc_q|。在每个周期，F0 都投机地按 \lstinline|pc_q + 4| 推进到 F1。若 F3 确认出现 taken 分支（如直接跳转、被预测为跳转的条件分支等），前端会立即执行自重定向，将 \lstinline|pc_q| 拉回预测目标。除此之外，凡是需要改写 PC 的情况（分支误预测、trap、xret、\lstinline|fence.i|、\lstinline|sfence.vma|、CSR 写等），统一由后端通过 \lstinline|io.flush| 携带正确的 \lstinline|io.dnpc| 来重写 \lstinline|pc_q|。顶层还会生成全局 squash 信号 \lstinline!squash = fe_take_branch | io.flush!，并广播到所有 \lstinline|PipelineConnect| 的 \lstinline|flush| 端口，以及 F1 与 Fp 的内部状态寄存器，从而保证整条流水在同一拍内同步清空。F1、F2+Fp、F3 三段的具体实现见下文。
+
+\subsection{F1 级：MMU 地址翻译}\label{sec:ifu-mmu}
+
+F1 承担取指侧的地址翻译职责，是前端事实上的 MMU 级，其典型实现即本文的 \lstinline|F1Stage| 子模块。模块内部由一个 16 项全相联的 iTLB 与一个 PTW 子 FSM 组成：iTLB 负责命中时的快路径，PTW 负责缺失时的慢路径回填；iTLB 的替换策略采用位矩阵 LRU（Bit-Matrix LRU）算法~\cite{belady1966replacement}，详见~\ref{sec:tlb} 节。Sv39 未启用时 F1 直接将虚拟地址低位截断作为物理地址组合放行；启用后则对 PC 的 VPN 做一次组合查表，命中且 PTE.X 合法（该页可执行）则一拍内输出翻译后的物理地址，命中但 PTE.X 不合法则置位 \lstinline|page_fault| 标志并向 F2 输出 mcause = 12 的指令页错误；若 TLB 缺失，则启动 PTW 沿 \lstinline|ptw_port| 走三级页表，完成后回填 iTLB 并在下一拍重查。
+
+PTW 子 FSM 是整个 F1 中唯一的状态机，需要与后文~\ref{sec:ptw} 节的 PTW 内部九态遍历 FSM 区分：前者是 F1Stage 内部用于驱动 PTW 请求/响应握手并与上层 squash 协同的外层 FSM，后者才是真正执行三级页表遍历的内部算法状态机。该外层 FSM 的主路径为 \lstinline|idle -> req -> waitResp -> idle|，并在此基础上补充 squash 处理。为此，F1 维护了图~\ref{fig:ifu-ptw-fsm} 所示的四状态握手 FSM，并配合两个辅助寄存器 \lstinline|ptw_vpn_reg| 与 \lstinline|ptw_abandoned| 记录在途请求上下文。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{ifu-ptw-fsm.png}
+  \caption{F1 内部 PTW 子 FSM 状态转移图（虚线表示 squash 路径）}
+  \label{fig:ifu-ptw-fsm}
+\end{figure}
+
+先看正常路径：\lstinline|idle -> req -> waitResp -> idle|。在 \lstinline|idle| 检测到 \lstinline|tlb_miss| 后，FSM 进入 \lstinline|req|，等待 PTW 接收新事务；当 \lstinline|ptw.req.fire| 成功握手后，将当前 VPN 锁存到 \lstinline|ptw_vpn_reg|，并转入 \lstinline|waitResp|；当页表遍历完成（\lstinline|ptw.resp.valid| 到达后），FSM 回到 \lstinline|idle|。此时只有同时满足“未被放弃（\lstinline|!ptw_abandoned|）、无 fault、F1 当前仍持有同一 VPN（\lstinline|in_vpn === ptw_vpn_reg|）”三条条件，才会真正 refill iTLB；否则将该响应视为过期并静默丢弃，避免错误 PPN 写入 iTLB。
+
+再看 squash 路径（图~\ref{fig:ifu-ptw-fsm} 中虚线）。若 squash 发生时总线上已有在途页表读请求（例如 \lstinline|req| 已握手成功，或已进入 \lstinline|waitResp| 但响应尚未返回），则置 \lstinline|ptw_abandoned = 1| 并转入 \lstinline|drain|，后续仅静默吞掉响应，不 refill、也不报告 fault。其余情况下（如 \lstinline|req| 尚未握手，或 \lstinline|waitResp| 与响应同拍到达），说明不存在未决事务，可直接回到 \lstinline|idle|。\lstinline|drain| 本质上是纯等待态：一旦收到响应即返回 \lstinline|idle|。
+
+\subsection{F2 + Fp 级：ICache 控制}\label{sec:ifu-icache-ctrl}
+
+F2 与 Fp 在实现上对应 \lstinline|F2Stage|、\lstinline|FpStage| 两个子模块，但在功能上共同构成“ICache 控制级”：F2 负责发请求，Fp 负责跟踪响应。其中 F2 $\to$ Fp 是整条 IFU 中唯一不使用 \lstinline|PipelineConnect| 的通路。
+
+F2 是纯组合段，不持有寄存器。它根据 \lstinline|F2In| 驱动 \lstinline|icache.req / addr / size| 并完成 \lstinline|req / ack| 握手；地址按 \lstinline|dataBytesBits| 对齐，请求仅在“上游有效、非 fault、且 Fp 有空槽”时发起，避免无效占用 ICache 带宽。对 F1 上报的 page fault，F2 走 fault bypass 直送 F3、绕过 Fp（故障表项不应占用 inflight 槽位）。cache 路径与 fault 路径最终由 fault 优先 Mux 汇合为同一份 \lstinline|F3In|，再经 \lstinline|PipelineConnect| 进入 F3。
+
+Fp 是 IFU 中承载多条 inflight cache 读的核心结构，实现为深度 4 的环形 FIFO。采用 4 深度而非单项缓冲，是为了匹配 ICache 连续命中时“每拍可接收新请求”的流水能力，避免 F2 过早反压。Fp 使用三个指针：\lstinline|enq_ptr|（F2 入队）、\lstinline|deq_ptr|（F3 出队）和 \lstinline|rdata_ptr|（响应回填）；前两者通过翻转位区分满/空，\lstinline|rdata_ptr| 在每次 \lstinline|icache.done| 时写入 \lstinline|slots(rdata_ptr)|。
+
+Fp 的 squash 策略比 F1 更直接：\lstinline|squash = 1| 同拍复位三个指针。此后即使旧响应返回，也会因 \lstinline|!has_inflight| 被忽略，不再写入槽位。
+
+\subsection{F3 级：预测与后端交付}
+
+F3（\lstinline|F3Stage|）是整条 IFU 的交付点。结构上，F3 本身是纯组合逻辑，唯一的时序元件来自其输入侧 \lstinline|PipelineConnect| 持有的 slot 寄存器。F3 的职责主要有三项：切出指令字、驱动 Predict 端口、生成前端自重定向脉冲。
+
+若上游表项已标记 \lstinline|has_fault|，则 F3 强制将指令字置 0，并在 \lstinline|IFUOutput| 中输出 \lstinline|mcause = 12|、\lstinline|mtval = pc|、\lstinline|has_except = 1|，供后端在 ROB 提交点统一触发 trap。
+
+Predict 端口以 \lstinline|pc|、\lstinline|inst| 为输入，以 \lstinline|dnpc|、\lstinline|ghr|(global history register) 为输出；F3 在同一拍将预测结果与原始指令一起封装到 \lstinline|IFUOutput|。
+
+F3 对控制冒险的收敛通过 \lstinline|fe_take_branch| 信号实现，其定义为：
+
+\[
+\mathrm{fe\_take\_branch} = (\neg\,\mathrm{has\_fault}) \wedge (\mathrm{predict.dnpc} \neq \mathrm{pc} + 4)
+\]
+
+即“F3 成功向后端交付了一条非故障指令，且预测下一 PC 不等于顺序后继 \lstinline|pc + 4|”。其对 F0 及各级 slot 的回卷影响将在下一节展开。
+
+\subsection{推测性控制冒险与前端自重定向}\label{sec:ifu-redirect}
+
+前端自重定向首先是在解决一个时序矛盾：\lstinline|pc_q| 必须先进入 F1 才能完成虚实地址转换，随后经 F2+Fp 才能取回指令，而分支是否跳转要到 F3 译码并调用 Predict 后才能确定。也就是说，当 F3 才知道“应当跳转”时，错误路径上的指令往往已经进入 F1/Fp 的流水；若不立即失效，这些指令就可能继续流入后端，造成错误执行。
+
+为此，F3 额外提供一条基于预测结果的前端收敛通道 \lstinline|fe_take_branch|。当该脉冲有效时，顶层同拍执行两件事：一是广播 \lstinline|squash| 到所有 \lstinline|PipelineConnect| 以及 F1/Fp 内部状态寄存器，使在途项指令失效；二是将 \lstinline|pc_q| 从默认的 \lstinline|pc_q + 4| 改写为 \lstinline|io.predict.dnpc|，使下一拍 F0 直接从预测目标重新取指。这样，控制冒险不必等待后端回写权威 PC，即可在前端就地止损，将 taken 分支的气泡压缩到 2 拍。
+
+这里的“推测性”在于：这次回卷只依赖前端预测。若预测错误，后端在若干拍后发现 \lstinline|redirect.dnpc| 与 \lstinline|predict_npc| 不一致，再由 CommitStage 发出 \lstinline|io.flush|，用权威 \lstinline|io.dnpc| 修正 \lstinline|pc_q|。在实现上，\lstinline|pc_q| 的更新采用优先多路复用，优先级为“后端权威 PC > 前端预测 PC > 顺序推进(PC+4)”。
+
+同理，前端不为这类会影响 PC 的 serializing 指令（如修改 \lstinline|mtvec|/\lstinline|mepc|、\lstinline|xret|、\lstinline|ecall|、\lstinline|ebreak|）建立独立预测通道。主要矛盾在于：这些指令的下一 PC 依赖后端执行结果，前端无法在 F3 提前给出可靠预测；在实现上等价于先按顺序路径 \lstinline|pc + 4| 推进，随后由后端在检测到真实控制流后发出 \lstinline|io.flush| 进行纠正。该策略虽会引入额外回卷，但在此类指令出现频率较低、专用硬件收益有限（Amdahl 定律~\cite{amdahl1967validity}）的前提下，仍是复杂度与收益更平衡的选择。
+
+\section{动态分支预测单元设计}\label{sec:predict}
+
+分支预测单元（Predict）对 IFU 取到的指令进行轻量译码，复用后端的 CU（Control Unit，控制单元）与 IGU（Immediate Generate Unit，立即数生成单元）模块提取指令类型与立即数。CU 本身是后端译码级的核心模块，包含完整的指令解码逻辑，具有一定的复杂性。前端复用 CU 时，将前端不涉及的输入信号硬编码为 0，不需要的输出信号悬空；综合工具在优化阶段可据此自动裁剪不可达的组合逻辑路径，使前端实例化的 CU 仅保留指令类型识别等轻量子集，在避免重复编写译码逻辑的同时不引入多余的面积开销。Predict 根据 CU 输出的指令类型将当前指令分派到不同的预测器，最终通过优先级选择逻辑输出预测的下一条 PC。
+
+\subsection{GShare 分支方向预测器（BHT, Branch History Table）}
+
+对于条件分支指令，采用 GShare 算法~\cite{mcfarling1993combining} 进行方向预测。GShare 使用全局历史寄存器（GHR, Global History Register）与 PC 的高 60 位（\lstinline|PC[63:4]|）进行异或得到哈希结果，再取索引位定位模式历史表（PHT, Pattern History Table），以利用全局分支相关性提高预测精度。PHT 包含 4096 个表项，每个表项使用 2 位饱和计数器：计数器高位为 1 表示预测跳转，为 0 表示预测不跳转。当 PHT 中对应表项尚未被训练（occupied 标志为假）时，退化为静态预测——以立即数符号位作为预测方向（负偏移预测跳转，正偏移预测不跳转），该启发式对循环结构有较好的覆盖。
+
+后端在条件分支指令提交时，通过 redirect 信号将实际跳转结果与该指令对应的 GHR 快照回传给 BHT，BHT 使用回传的 GHR 与 PC 异或重新定位 PHT 表项并更新饱和计数器，同时将实际跳转方向移入 GHR。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.45\textwidth]{gshare-xor.png}
+  \caption{GShare 中 GHR 与 PC 异或索引示意}
+  \label{fig:gshare-xor}
+\end{figure}
+
+\subsection{间接跳转目标缓存（IJTC, Indirect Jump Target Cache）}
+
+对于非返回类的间接跳转指令（JALR 且非 ret 模式），采用 IJTC 进行目标地址预测。IJTC 使用 8 项全相联内容可寻址存储器（CAM, Content Addressable Memory）结构，以 PC 作为 tag 进行匹配查询。命中时直接返回缓存的目标地址；缺失时不做预测，前端将使用顺序 PC。
+
+更新策略上，后端在 JALR 指令提交时将实际 PC 与目标地址回传给 IJTC。若 CAM 中已存在该 PC 对应的表项则原地更新目标地址；若不存在则以先进先出（FIFO, First In First Out）策略淘汰最旧表项并写入新映射。
+
+\subsection{返回地址栈（RAS, Return Address Stack）}
+
+对于函数返回指令，采用 RAS 进行目标地址预测。RAS 为深度 8 的循环栈，通过 rd 和 rs1 字段识别 call/ret 模式：当指令为 JAL 或 JALR 且目的寄存器为 x1 或 x5 时判定为 call，将顺序 PC（snpc = pc + 4）压栈；当指令为 JALR 且 rd = x0、rs1 = x1 时判定为 ret，弹栈并将栈顶值作为预测目标。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\textwidth]{ras-stack.png}
+  \caption{返回地址栈（RAS）工作示意}
+  \label{fig:ras-stack}
+\end{figure}
+
+\subsection{预测选择逻辑}
+
+Predict 模块根据指令类型按优先级选择预测结果：JAL 指令直接使用 PC + 立即数作为目标；条件分支指令根据 BHT 预测方向选择跳转目标或顺序 PC；JALR 且为 ret 模式时使用 RAS 弹栈结果；JALR 且 IJTC 命中时使用 IJTC 缓存的目标地址；其余情况使用顺序 PC。预测结果与当前 GHR 快照一并传递给 IFU，由 IFU 在下一周期使用该地址取指，并随指令一同送入后端，供后端在提交时进行验证与预测器更新。
+
+\subsection{与 BTB 方案的对比及设计取舍}
+
+经典分支预测方案~\cite{yao2014superscalar} 通常使用分支目标缓冲器（BTB, Branch Target Buffer）：在取指阶段以 PC 索引 BTB，若命中则直接读出缓存的跳转目标地址，从而在译码之前就完成预测。BTB 的优势在于无需等待指令译码即可获得目标地址，适合流水化取指前端。
+
+本课题的设计目标是在尽可能简单的前端实现下取得合理的预测覆盖。在本文的 4 段流水前端（\ref{sec:ifu-pipeline} 节）中，预测器工作在 F3 阶段——指令字已在 F3 可见，指令类型与立即数可得。对于 JAL 和 BRANCH 这两类指令，目标地址为 PC + 立即数的简单加法，可在当拍直接计算得出，无需额外的缓存结构；仅对 JALR 这类目标地址依赖寄存器值、前端无法计算的指令，才借助 IJTC 或 RAS 进行预测。因此在本微架构下，BTB 的作用被直接计算和专用预测器所替代，省去了 BTB 的存储开销与维护逻辑；后续若进一步优化时序，拆分取指流水线，则 BTB 才会成为必要的补充。
+
+\subsection{预测器更新策略}
+
+三个预测器的更新策略根据各自特性采用了不同的时机。
+
+GShare 与 IJTC 采用保守策略，仅在指令提交（commit）时更新。后端通过 redirect 信号将已提交的分支指令的实际跳转结果、PC 与 GHR 快照回传给前端预测器。这一策略的优势在于只有确认正确执行路径上的指令才会影响预测器状态，避免了因推测执行路径上的错误信息污染 PHT 或 IJTC 表项。
+
+RAS 则采用激进策略，在前端取指与预解码阶段即时更新：遇到 call 指令立即压栈，遇到 ret 指令立即弹栈。这一设计是合理的——即使当前指令处于推测路径上，推测路径中的 call 与 ret 仍然是成对出现的，压栈与弹栈操作相互抵消，不会破坏栈的正确性。若在前端就更新 RAS，后续紧跟的 ret 指令可以立即获得正确的返回地址，而无需等待 call 指令提交，从而降低了函数调用密集场景下的预测延迟。
+
+\section{本章小结}
+
+本章围绕“前端取指流水化、分支预测”两条主线介绍了 IFU 与动态分支预测的设计。
+
+在取指流水化方面，IFU 采用 F0、F1、F2、Fp、F3 的流水结构，以“直线代码稳态 1 IPC、taken 分支仅引入 2 拍气泡”为性能目标。F1 作为 MMU 级完成 iTLB 查询与 PTW 慢路径遍历；F2 与 Fp 共同构成 ICache 控制级，F2 负责请求通道、Fp 以深度 4 的环形 FIFO 追踪在飞响应，二者间以直连代替 \lstinline|PipelineConnect| 以满足 ICache 握手时序；F3 作为提交点在一拍内完成指令切分、预测驱动与后端交付。
+
+在分支预测方面，设计采用 GShare + IJTC + RAS 的组合方案，分别对应条件分支、间接跳转与函数返回三类控制流。得益于前端已完成预解码，JAL 与 BRANCH 的目标地址可直接由 PC 与立即数相加得到，仅 JALR 需借助专用预测器，从而省去了 BTB 的存储与维护开销。更新策略上，GShare 与 IJTC 采用提交时更新的保守策略以避免推测路径污染预测器状态；RAS 则在进入后端指令队列当拍完成 push/pop，借助 call/ret 的成对性降低返回预测延迟。
+
+在推测性控制冒险处理上，前端通过 F3 的 \lstinline|fe_take_branch| 脉冲就地收敛 taken 分支，将气泡压缩到 2 拍。除此之外，所有需要前端回卷的场景统一交给后端 CommitStage 发出的 \lstinline|io.flush| 处理，其触发可分为以下两类：
+
+\begin{enumerate}
+  \item “改 PC”事件，包括分支误预测、trap 与 xret：后端确定权威目标后，以 \lstinline|io.flush| + \lstinline|io.dnpc| 对 \lstinline|pc_q| 做二次回卷。
+  \item “影响前端状态但不一定改 PC”的事件，包括 \lstinline|fence.i|（ICache cacheline 失效）、\lstinline|sfence.vma|（iTLB 表项失效）以及改变 \lstinline|satp|/特权级的 CSR 写：即便 PC 可保持顺序，前端仍需同拍清空所有 inflight 事务，并按后端给出的 \lstinline|io.dnpc|（通常为 \lstinline|pc+4|）重新取指。
+\end{enumerate}
+
+关于分支预测命中率、前端 flush 事件分解及其与三组基准程序（MicroBench / Dhrystone / CoreMark）的分析，详见~\ref{sec:perf-fe-breakdown} 节与表~\ref{tbl:perf-bp}。

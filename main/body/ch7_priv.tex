@@ -1,0 +1,181 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{RISC-V 特权级架构}
+
+本章介绍处理器的特权级架构、精确异常与中断机制的设计与实现。实现主要参考 RISC-V 特权级规范~\cite{riscv2024priv}、监督二进制接口（SBI, Supervisor Binary Interface）规范~\cite{riscv2024sbi} 以及 PLIC~\cite{riscv2024plic} 与 CLINT 规范手册~\cite{sifive2024interrupt}。
+
+\section{M/S/U 三级特权架构}
+
+处理器实现了 RISC-V 规范定义的三级特权模式：M-mode（机器模式）、S-mode（监管模式）与 U-mode（用户模式）。当前特权级由 CSRU 内部的 \lstinline|priv| 寄存器维护，上电复位后初始化为 M-mode。特权级的切换由两类事件驱动：
+
+\begin{enumerate}
+  \item 陷入（Trap）：异常或中断发生时，处理器根据委托寄存器（medeleg/mideleg）决定陷入到 M-mode 还是 S-mode，并将当前特权级保存到 mstatus 的 MPP 或 SPP 字段。
+  \item 返回（xRET）：执行 mret 时从 mstatus.MPP 恢复特权级；执行 sret 时从 mstatus.SPP 恢复特权级。
+\end{enumerate}
+
+图~\ref{fig:priv-fsm} 展示了 M/S/U 三级特权模式之间的完整转换关系。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{priv-fsm.png}
+  \caption{M/S/U 特权级状态机}
+  \label{fig:priv-fsm}
+\end{figure}
+
+通过委托(delegate)机制，操作系统可在 S-mode 直接处理用户态的系统调用与页错误等常见异常，无需经过 M-mode 中转，降低了 trap 延迟。常见的操作系统，如 Linux, NetBSD 等，均运行在 S-mode 并且开启委托机制。
+
+\section{CSR 寄存器文件}
+
+CSRU 内部实现了完整的 M-mode 与 S-mode CSR 寄存器集合：
+
+\begin{table}[H]
+  \centering
+  \caption{CSR 寄存器集合}
+  \label{tbl:csr-set}
+  \begin{tabular}{cll}
+    \toprule
+    模式 & 寄存器 & 功能 \\
+    \midrule
+    M & mstatus, mtvec, mepc, mcause, mtval & 状态、陷入入口、异常现场 \\
+    M & medeleg, mideleg & 异常/中断委托 \\
+    M & mie, mip & 中断使能与挂起 \\
+    M & mscratch, menvcfg, mcounteren & 暂存、环境配置、计数器访问 \\
+    M & pmpcfg0, pmpaddr0 & 物理内存保护 \\
+    M & mvendorid, marchid, mhartid, misa & 只读标识（RV64IMASU） \\
+    S & sstatus, stvec, sepc, scause, stval & S-mode 状态与陷入现场 \\
+    S & sie, sip, sscratch, satp & 中断使能、暂存、页表基址 \\
+    S & stimecmp & S-mode 定时器比较值 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+其中 sstatus、sie 与 sip 并非独立寄存器，而是 mstatus、mie 与 mip 的掩码视图（masked view）。例如 sstatus 的读取值为 \lstinline|mstatus & SSTATUS_MASK|，写入时仅修改掩码对应位，其余位保持不变。这一设计与 RISC-V 规范一致，避免了 M/S 两级寄存器状态的冗余与不一致。
+
+CSR 指令支持三种操作类型：CSRRW（读后写）、CSRRS（读后置位）与 CSRRC（读后清零），写入数据分别为 \lstinline|wdata|、\lstinline!csr_read | wdata!、\lstinline|csr_read & ~wdata|。
+
+\section{精确异常}
+
+本文通过 ROB 顺序提交机制实现精确异常。异常在流水线各阶段被检测后，仅在对应指令的 ROB 表项中标记异常类型（mcause）与辅助信息（mtval），不立即影响处理器状态。当该指令到达 ROB 提交头部时，CommitStage 检查异常标记并触发 trap 流程：
+
+\begin{enumerate}
+  \item CommitStage 根据当前特权级确定 ECALL 的实际异常号（U-mode $\to$ 8，S-mode $\to$ 9，M-mode $\to$ 11），其他异常类型直接使用译码级标记的 mcause。
+  \item CSRU 根据异常号查询 medeleg 判断是否委托给 S-mode：若 \lstinline|medeleg| 对应位为 1 且当前特权级不高于 S-mode，则陷入 S-mode（写 scause/sepc/stval，目标地址取 stvec）；否则陷入 M-mode（写 mcause/mepc/mtval，目标地址取 mtvec）。
+  \item 陷入时更新 mstatus：保存当前特权级到 MPP/SPP，保存当前中断使能位到 MPIE/SPIE，关闭中断使能（MIE/SIE 置零），切换到目标特权级。
+  \item CommitStage 生成 flush 信号清空流水线，redirect 指向 trap 入口地址。
+\end{enumerate}
+
+由于异常处理严格在提交点进行，推测路径上的指令不会修改任何体系结构状态，因此异常对程序员始终表现为在触发异常的指令处精确发生。
+
+\section{中断机制}
+
+\subsection{中断源与挂起检测}
+
+处理器支持三类中断源：
+
+外部中断。外设（如 UART）产生的中断信号经 PLIC（Platform-Level Interrupt Controller）仲裁后，以 \lstinline|ext_irq| 信号送入 CSRU，映射到 mip 的 SEIP 位（bit 9）。中断流为：外设 $\to$ PLIC $\to$ ext\_irq $\to$ mip.SEIP。
+
+定时器中断。CLINT（Core-Local Interruptor）维护全局计时器 mtime，CSRU 将 mtime 与 S-mode 定时器比较寄存器 stimecmp 比较，当 \lstinline|mtime >= stimecmp| 时置位 mip 的 STIP 位（bit 5）。
+
+软件中断。通过软件写 sip 寄存器的 SSIP 位（bit 1）触发。
+
+\subsection{中断使能与委托}
+
+中断的最终挂起状态由三个因素共同决定：mip（硬件挂起）、mie（使能掩码）与 mideleg（委托掩码）。CSRU 将中断分为两组计算：
+
+\begin{itemize}
+  \item M-mode 中断：\lstinline|m_interrupts = mip & mie & ~mideleg|（未委托的中断）
+  \item S-mode 中断：\lstinline|s_interrupts = mip & mie & mideleg|（已委托给 S-mode 的中断）
+\end{itemize}
+
+中断是否可响应还取决于当前特权级与全局中断使能位：M-mode 中断仅在 \lstinline|priv < M| 或 \lstinline|(priv == M && mstatus.MIE)| 时可响应；S-mode 中断仅在 \lstinline|priv < S| 或 \lstinline|(priv == S && mstatus.SIE)| 时可响应。
+
+\subsection{中断注入与优先级}
+
+中断的注入发生在 CommitStage：当 ROB 头部指令正常提交（无异常）且 CSRU 报告 \lstinline|interrupt_pending| 为真时，CommitStage 先正常提交当前指令（更新 ArchRAT、释放 old\_prd），随后立即触发中断 trap。中断的 epc 设置为当前提交指令的下一条 PC（retiring\_dnpc），使中断返回后可从正确位置继续执行。
+
+中断优先级遵循 RISC-V 规范：M-mode 中断优先于 S-mode 中断；同一模式内优先级为 MEI(machine external interrupt) > MSI(machine software interrupt) > MTI(machine timer interrupt) > SEI(supervisor ...) > SSI > STI。CSRU 通过 \lstinline|MuxCase| 按优先级选择最高优先级的中断源，并输出对应的 cause 与 trap 目标地址。
+
+\subsection{MRET 与 SRET}
+
+mret 与 sret 指令在提交时触发特权级恢复：
+
+\begin{itemize}
+  \item mret：从 mstatus.MPP 恢复特权级，将 mstatus.MPIE 恢复到 MIE，MPIE 置 1，MPP 清零，redirect 指向 mepc。
+  \item sret：从 mstatus.SPP 恢复特权级，将 mstatus.SPIE 恢复到 SIE，SPIE 置 1，SPP 清零，redirect 指向 sepc。
+\end{itemize}
+
+\subsection{PLIC}
+
+PLIC（Platform-Level Interrupt Controller）用于接收外设中断并向处理器统一分发。虽然 PLIC 自身在总线拓扑上与 UART、VGA 等模块同属外设层级（见图~\ref{fig:soc-arch}），但其功能是对外设中断进行汇聚、排队与屏蔽，再通过中断线将可响应中断提交给 CPU。
+
+从处理流程看，当 CPU 处于开中断状态且检测到外部中断有效时，会先关闭全局中断并跳转到中断处理程序。处理程序通常先执行 \lstinline|plic_claim|，将当前中断源标记为已认领(claimed)（暂时屏蔽），以避免同一中断在处理期间反复触发；随后访问对应外设并消费事件（例如 UART 中断中读取接收队列中的字符）。当外设侧事件被清空后，源信号会撤销，不再继续向 PLIC 申请中断。处理结束时执行 \lstinline|plic_complete| 解除该中断源的暂时屏蔽，最后通过中断返回指令恢复应用程序上下文并继续执行。
+
+对于单个中断源，其状态流转可抽象为 \lstinline|idle|、\lstinline|pending|、\lstinline|claimed| 三态，如图~\ref{fig:plic-single-irq-fsm} 所示：中断源拉高后进入 pending；被 claim 后进入 claimed；在 complete 后根据中断源是否仍保持有效，分别回到 pending 或 idle。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{plic-single-irq-fsm.png}
+  \caption{PLIC 单中断源状态机}
+  \label{fig:plic-single-irq-fsm}
+\end{figure}
+
+\section{Sv39 虚拟内存与内存管理单元}
+
+本文实现了 RISC-V Sv39 虚拟内存方案~\cite{riscv2024priv}。Sv39 将 64 位虚拟地址的低 39 位划分为三级页号（VPN[2:0]，每级 9 位）与 12 位页内偏移，通过三级页表将虚拟页号翻译为 44 位物理页号（PPN）。当 satp 寄存器的 MODE 字段为 8 时启用 Sv39，satp.PPN 指向根页表的物理基地址。
+
+内存管理单元由 TLB（Translation Lookaside Buffer）与 PTW（Page Table Walker）两个模块组成，IFU 与 LSU 各自实例化一套独立的 iTLB+PTW 和 dTLB+PTW，分别服务于取指地址翻译与访存地址翻译。两套 MMU 在结构上完全相同，仅在权限检查的具体位（IFU 检查 PTE.X，LSU 检查 PTE.R/PTE.W）上有所区别。
+
+\subsection{TLB 设计}\label{sec:tlb}
+
+TLB 采用 16 项全相联结构，以 VPN（27 位）作为 tag 进行匹配查询。查询时对所有表项并行比较，通过优先级编码器选中命中项，返回对应的 PPN 与页表标志位（flags）。sfence.vma 指令执行时，通过 flush 信号一次性失效全部表项。
+
+TLB 的替换策略采用位矩阵 LRU（Bit-Matrix LRU）算法~\cite{belady1966replacement}。该算法使用一个 N×N 的位矩阵 M 记录表项间的访问先后关系：M[i][j] = 1 表示表项 i 比表项 j 更近被访问。当访问表项 k 时，将第 k 行全部置 1、第 k 列全部置 0，表示 k 成为最近访问项。需要淘汰时，选择行向量全为 0 的表项（即比所有其他表项都更早被访问的项）作为替换目标。算法伪代码如下：
+
+\begin{lstlisting}[language=Python,caption={位矩阵 LRU 替换算法伪代码},label={lst:bit-matrix-lru}]
+# 访问表项 k 时更新矩阵
+def access(M, k, N):
+    for j in range(N):
+        M[k][j] = 1   # 第 k 行全部置 1
+    for i in range(N):
+        M[i][k] = 0   # 第 k 列全部置 0
+
+# 选择 LRU 表项（行全零）
+def find_lru(M, N):
+    for i in range(N):
+        if all(M[i][j] == 0 for j in range(N)):
+            return i
+\end{lstlisting}
+
+位矩阵 LRU 的硬件实现仅需 N×(N-1)/2 个触发器（矩阵对角线恒为 0 且 M[i][j] = !M[j][i]，实际只需存储上三角），访问更新与 LRU 查询均可在单周期内完成，适合全相联结构的小容量 TLB。
+
+\subsection{PTW 设计}\label{sec:ptw}
+
+PTW 负责在 TLB 缺失时遍历内存中的三级页表。PTW 模块本身只关心一次完整的三级页表遍历算法；其对外请求/响应接口由前端 \lstinline|F1Stage| 外层的四态握手子 FSM 驱动，后者负责 TLB 缺失的启动、在途请求的 squash 协同与 iTLB 回填（详见~\ref{sec:ifu-mmu} 节）。PTW 采用九状态有限状态机实现：
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{ptw-fsm.png}
+  \caption{PTW 页表遍历状态机}
+  \label{fig:ptw-fsm}
+\end{figure}
+
+如图~\ref{fig:ptw-fsm} 所示，PTW 从 idle 状态接受请求后，依次访问第 2 级、第 1 级与第 0 级页表项。每一级的访问地址由上一级 PTE 中的 PPN 拼接当前级的 VPN 索引与 3 位字节偏移构成（每个 PTE 为 8 字节）。每级读取 PTE 后检查有效位（PTE.V）：若无效则进入 fault 状态报告页错误；若有效则继续下一级。第 0 级还额外检查权限合法性（不允许 !R \&\& W 的非法编码）。遍历成功后进入 done 状态，输出叶子 PTE 的 PPN 与 flags 供 TLB refill 使用。
+
+\subsection{LSU 中的地址翻译}
+
+LSU 的访存状态机采用与 IFU 相同（详见~\ref{sec:ifu-mmu} 节）的 TLB 优先策略：
+
+如图~\ref{fig:lsu-fsm} 所示，ROB 发起访存请求后，LSU 首先判断 Sv39 是否启用。若未启用则直接使用虚拟地址进入 lsu\_req 访问 DCache 或外设端口；若启用则进入 tlb\_check 查询 dTLB。dTLB 命中时检查权限：Load 指令检查 PTE.R，Store 指令检查 PTE.W，权限不合法则报告 load page fault（mcause = 13）或 store page fault（mcause = 15）并回到 idle。权限合法则将翻译后的物理地址锁存，进入 lsu\_req。dTLB 缺失时启动 PTW，PTW 完成后 refill dTLB 并回到 tlb\_check 重新查询。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{lsu-fsm.png}
+  \caption{LSU 访存状态机（含地址翻译）}
+  \label{fig:lsu-fsm}
+\end{figure}
+
+lsu\_req 状态根据地址映射判断访问目标：若地址属于内存映射 I/O（MMIO, Memory-Mapped I/O）区域则通过外设端口（perip）访问，否则通过 DCache 端口访问。两条路径共享相同的握手逻辑：单周期完成时直接返回 idle，否则进入 lsu\_wait 等待数据就绪。Load 指令的返回数据根据访问宽度（byte/half/word/double）与符号扩展标志进行对齐提取与扩展后写回 PRF。
+
+\section{本章小结}
+
+本章介绍了 RISC-V M/S/U 三级特权架构、CSR 寄存器文件、精确异常、中断机制与 Sv39 虚拟内存的设计与实现。精确异常通过 ROB 顺序提交保证，异常仅在提交点生效；中断通过 CSRU 的挂起检测与 CommitStage 的注入机制实现，支持外部中断（PLIC）、定时器中断（CLINT/stimecmp）与软件中断三类来源，并通过 medeleg/mideleg 实现异常与中断的 M/S 两级委托。Sv39 虚拟内存由 TLB 与 PTW 两个模块实现，IFU 与 LSU 各自拥有独立的 iTLB/dTLB 与 PTW，采用“乐观路径先查 TLB、悲观路径回退到 PTW”的设计，在 TLB 命中时无额外延迟。

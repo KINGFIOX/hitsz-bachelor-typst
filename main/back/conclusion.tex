@@ -1,0 +1,26 @@
+% !Mode:: "TeX:UTF-8"
+\begin{conclusions}
+
+本文围绕“RISC-V 指令集乱序处理器设计”这一课题，完成了从核心微架构设计到系统级集成与验证的全流程工作。主要工作与结论如下：
+
+\begin{enumerate}
+  \item SoC 系统设计与集成。设计并实现了基于 AXI4/APB 分层互连的 SoC 平台，通过一级 Crossbar 服务高带宽主存路径、二级 Crossbar 连接片上存储与外设桥接，形成了处理器核心、总线、存储控制器与外设协同工作的完整系统环境。该平台为乱序处理器运行操作系统提供了稳定的硬件基础。
+
+  \item 关键存储控制器 IP 核实现。使用 Chisel 实现了 Flash 控制器（支持 SPI 命令访问与 XIP 直接取指执行）、PSRAM QSPI Master 控制器（支持 QSPI/QPI 模式切换）与 SDRAM 控制器（支持流水化访问与低位交叉字扩展），三者均配有行为级仿真模型并通过协议级验证，具备对接物理芯片的能力。
+
+  \item 单发射乱序处理器核心设计。实现了前后端解耦的单发射乱序处理器，支持 RV64IM 指令集。后端采用统一物理寄存器文件的寄存器重命名方案，通过 FutureRAT/ArchRAT/FreeList/BusyTable 协同工作实现乱序执行与顺序提交；发射队列与执行单元采用泛型抽象类设计，具备良好的代码复用性与可扩展性。前端分支预测采用 GShare+IJTC+RAS 组合方案，在三组负载上达到 90.97\%--96.77\% 的预测准确率。
+
+  \item 缓存子系统设计。实现了 VIPT 结构的 ICache 与 DCache，均为 4 路组相联、64 组、64 字节缓存行，采用 Pseudo-LRU 替换策略。处理器核心侧采用自定义类 SRAM 总线协议降低接口复杂度，缓存对外通过 AXI4 Burst 完成 refill 与 writeback。DCache 支持写回策略、Write Buffer 优化与 fence.i 全缓存刷写。
+
+  \item RISC-V 特权级架构与虚拟内存实现。实现了 M/S/U 三级特权模式、完整的 CSR 寄存器集合、异常委托机制、外部/定时器/软件三类中断源的注入与处理，以及 Sv39 三级页表虚拟内存机制（含 TLB 与 PTW），为操作系统运行提供了完整的体系结构支持。
+
+  \item 仿真验证平台构建。基于 Verilator 与 C++20 构建了功能完备的仿真验证平台，包含类 GDB 简易调试器（内置 Flex/Bison 表达式求值引擎）、四类执行追踪器（ITrace/MTrace/DTrace/FTrace）、基于 Spike 的逐指令差分测试、基于 fork 的 LightSSS 快照回放机制，以及 NVBoard 外设可视化集成。
+
+  \item 操作系统运行验证。处理器已成功运行 xv6 教学操作系统与 RT-Thread 实时操作系统，验证了乱序执行、缓存访问、异常中断处理与虚拟内存管理等关键功能的正确性。
+
+  \item 性能评估。基于 MicroBench、Dhrystone、CoreMark 三组基准程序并结合 RTL 寄存器 + DPI-C 事件的混合性能计数器，对处理器进行了多维度定量评估。测量结果表明：三组负载的 IPC 分别为 0.47、0.45 与 0.55，\lstinline|commit / ifu_deliver| 处于 0.88--0.91 区间，说明后端与前端共同参与了瓶颈构成；Dhrystone 成绩为 0.559 DMIPS/MHz，CoreMark 成绩为 1.540 CoreMark/MHz；ICache 命中率均在 99.9996\% 以上、DCache 命中率为 96.87\%--99.99\%、分支预测命中率为 90.97\%--96.77\%，整体处于同类教学与研究实现的合理区间。
+\end{enumerate}
+
+本文工作的局限性与未来改进方向包括：当前处理器仍为单发射结构，指令吞吐率受限于每周期至多提交一条指令，后续可扩展为双发射或多发射以进一步提升性能，届时 BTB 与多端口 BP(branch predict) 也将成为必要的补充；当前前端将 Predict 模块挂在 F3 的组合路径上，这在未来追求更高时钟频率时会成为时序关键路径，可通过将 BPU 拆出独立流水段缓解；当前缓存层次仅有 L1，可增加 L2 缓存以降低主存访问延迟；目前 DMA 读写内存前后需要插入 \lstinline|fence.i| 使得整片缓存无效，未来可引入支持缓存一致性总线协议。此外，可进一步完成 FPGA 综合与上板验证，评估实际时钟频率与资源占用。本文所述设计已在 GitHub 上以 GPLv2 协议开源\footnote{项目仓库：\url{https://github.com/KINGFIOX/ysyx-workbench}}。
+
+\end{conclusions}

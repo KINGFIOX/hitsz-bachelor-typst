@@ -1,0 +1,192 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{后端：乱序执行引擎}\label{sec:backend}
+
+后端接收前端经指令队列送入的指令流，完成译码、寄存器重命名、发射、执行、写回与提交的全流程，是实现乱序执行的核心引擎~\cite{smith1995superscalar}。本文实现的后端支持 RV64IM 指令集架构，包含整数运算、乘除法运算、分支、访存与控制状态寄存器（CSR, Control and Status Register）五条执行路径。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics{backend-arch.png}
+  \caption{后端乱序执行引擎（仅展示核心数据通路）}
+  \label{fig:backend-arch}
+\end{figure}
+
+如图~\ref{fig:backend-arch} 所示，后端按“译码—重命名—分派—发射—执行—（延迟执行）—提交”的主路径组织。指令进入 Decode 后，在 Rename 阶段结合 FutureRAT 与 FreeList 完成物理寄存器分配，随后在 Dispatcher 一方面写入 ROB，另一方面按类型分发到 ALU IQ、BRU IQ、MDU IQ。各发射队列在满足就绪条件后驱动对应执行单元，执行结果统一写回 PRF，并由 ROB 负责跟踪完成与提交顺序。图中同时给出了 BusyTable、ArchRAT、LSU、CSRU 与 Commit Stage 在提交路径中的位置：其中 LSU/CSRU 走延迟执行路径，由 ROB 在接近提交时交付；Commit Stage 再从 ROB 头部按序提交，完成 ArchRAT 更新与 FreeList 回收，实现从乱序执行到顺序提交的状态收敛~\cite{choi2013rob}~\cite{smith1988precise}。为突出主干流程，图中省略了控制信号与回写细连线。
+
+\section{译码级}
+
+译码级接收前端送入的指令字与 PC，通过 CU（Control Unit）解码出指令类型、功能单元选择、操作码、源/目的寄存器编号等控制信号，通过 IGU（Immediate Generate Unit）提取并符号扩展立即数。译码级的输出形成完整的微操作描述，经流水线寄存器\footnote{该流水线寄存器采用前文 \lstinline|PipelineConnect| 实现，见代码~\ref{lst:pipeline-connect}。}传递给重命名级。
+
+CU 的实现利用了 Chisel 提供的 \lstinline|DecodeTable| 框架与 Espresso 逻辑最小化工具~\cite{chipsalliance_espresso}。具体而言，首先定义 \lstinline|InstPattern| 作为指令编码的匹配模板，将 func7、rs2、func3、opcode 四个字段组合为 \lstinline|BitPat|，其中不相关的位标记为 don't-care：
+
+\begin{lstlisting}[language=Scala,caption={指令匹配模板 InstPattern 定义},label={lst:inst-pattern}]
+case class InstPattern(
+  func7: BitPat = BitPat.dontCare(7),
+  rs2:   BitPat = BitPat.dontCare(5),
+  func3: BitPat = BitPat.dontCare(3),
+  opcode: BitPat
+) extends DecodePattern {
+  def bitPat = func7 ## rs2 ## BitPat.dontCare(5)
+    ## func3 ## BitPat.dontCare(5) ## opcode
+}
+\end{lstlisting}
+
+随后，为每个需要译出的控制信号定义一个 \lstinline|DecodeField|，在其 \lstinline|genTable| 方法中以 Scala 模式匹配的方式描述每条指令对应的输出值。所有指令模板与译码字段汇总为一张 \lstinline|DecodeTable|，Chisel 编译期自动调用 Espresso 对真值表进行两级逻辑最小化，生成面积最优的组合逻辑电路。相比手工编写 \lstinline|MuxLookup| 或 \lstinline|switch| 译码树，该方案在指令数量增长时仍能保持紧凑的门级实现，同时 Scala 的类型系统与模式匹配语法使译码表的维护更加直观，新增指令只需在 \lstinline|allInstructions| 列表中追加一行 \lstinline|InstPattern| 并在各 \lstinline|DecodeField| 中补充对应映射即可，如代码~\ref{lst:decode-table-example} 所示。
+
+\begin{lstlisting}[language=Scala,caption={DecodeTable 指令模板与字段汇总示例},label={lst:decode-table-example}]
+val allInstructions = Seq(
+  InstPattern(func7 = BitPat("b0000000"),
+    func3 = BitPat("b000"),
+    opcode = BitPat("b0110011")), // ADD
+  ...
+)
+
+object CsrOpField extends DecodeField[InstPattern, UInt] {
+  def name = "csr_op"
+  def genTable(op: InstPattern) = op.opcode.rawString match {
+    case OP_SYSTEM =>
+      op.func3.rawString match {
+        case "001" => bp(CSROpType.CSR_RW)
+        case _     => dc
+      }
+    case _ => dc
+  }
+}
+
+val allFields = Seq(
+  CsrOpField,
+  ...
+)
+
+val decodeTable = new DecodeTable(allInstructions, allFields)
+\end{lstlisting}
+
+CU 的译码输出涵盖 9 个字段：指令类型（\lstinline|InstType|，18 种）、ALU 操作码（\lstinline|ALUOpType|）、MDU 操作码（\lstinline|MDUOpType|）、立即数类型（\lstinline|ImmType|，I/S/B/U/J 五种）、BRU 操作码（\lstinline|BRUOpType|）、访存宽度与符号扩展标志、CSR 操作类型与写使能。对于 ECALL、EBREAK 与非法指令，CU 额外输出异常标记与 mcause/mtval 初始值，供提交级进一步处理。
+
+\section{寄存器重命名}
+
+寄存器重命名是乱序执行的核心前提~\cite{tomasulo1967algorithm}，其目的是消除指令间由逻辑寄存器复用导致的 WAW（写后写）与 WAR（写后读）假依赖，使真正的数据依赖（RAW）成为唯一的调度约束。本文采用统一物理寄存器文件（Unified Physical Register File, PRF）方案，主要涉及以下结构：
+
+物理寄存器文件（PRF）。PRF 提供 9 个读端口与 5 个写端口。9 个读端口分配给 ALU（2）、BRU（2）、MDU（2）、LSU（2）与 CSRU（1）五条执行路径；5 个写端口分别服务于 ALU 写回、分派级立即数写入、LSU 写回、CSR 写回与 MDU 写回。
+
+Future RAT(future register alias table)。Future RAT 维护推测状态下的逻辑寄存器到物理寄存器映射表。重命名级通过 3 个读端口查询源寄存器（rs1、rs2）与目的寄存器（rd）当前映射的物理寄存器号，随后从 FreeList 分配一个空闲物理寄存器作为 rd 的新映射，并将新映射写回 Future RAT。旧的 rd 映射（old\_prd）随指令一同写入 ROB，供提交时释放。
+
+Arch RAT(architectural alias table)。Arch RAT 维护已提交的确定性映射。每当指令提交时，CommitStage 将该指令的逻辑目的寄存器与新物理寄存器映射写入 Arch RAT，并将 old\_prd 归还 FreeList。Arch RAT 始终反映最近一次已提交指令的寄存器状态。
+
+FreeList。FreeList 管理空闲物理寄存器池。重命名级从中分配新物理寄存器，提交级向其归还不再需要的物理寄存器。归还的依据是：当一个逻辑寄存器被后续指令重新定义（即发生 WAW）时，承载旧值的物理寄存器的生命周期随之结束，可以被安全释放。以如下指令序列为例：
+
+\begin{table}[H]
+  \centering
+  \caption{重命名分配示例}
+  \label{tbl:rename-example}
+  \begin{tabular}{cccc}
+    \toprule
+    指令 & 逻辑 rd & 分配 prd & old\_prd \\
+    \midrule
+    ADD x1, x2, x3 & x1 & p10 & p1 \\
+    SUB x1, x4, x5 & x1 & p11 & p10 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+ADD 将 x1 的映射从 p1 更新为 p10，此时 p1 成为 old\_prd。当 ADD 提交时，p1 承载的旧值已无任何指令需要读取（后续所有引用 x1 的指令都将读到 p10 或更新的映射），因此 p1 可以归还 FreeList。同理，当 SUB 提交时，x1 的映射再次更新为 p11，p10 的生命周期结束并被归还。通过这一机制，物理寄存器的分配与回收严格跟随逻辑寄存器的定义链，保证了在任意时刻每个“活跃值”都独占一个物理寄存器，不会出现数据覆盖。当发生 flush 时，FreeList 根据 Arch RAT 快照重建：凡不在 Arch RAT 映射中的物理寄存器均标记为空闲，一拍即可完成恢复。
+
+BusyTable。BusyTable 记录每个物理寄存器的数据就绪状态。重命名级在分配新物理寄存器时将其标记为 busy；当结果产生时通过 wakeup 信号清除 busy 标记。发射队列在发射前查询 BusyTable 以判断源操作数是否就绪。BusyTable 配置 6 个读端口供三个发射队列使用（每队列 2 个，对应 rs1 和 rs2），5 个 wakeup 端口对应三类时机：（1）分派级即时唤醒——LUI、AUIPC、JAL、JALR 等指令的结果仅依赖 PC 与立即数，在分派级即可计算并写入 PRF，同时发出 wakeup；（2）执行完毕唤醒——ALU 与 MDU 执行单元写回结果时发出 wakeup；（3）延迟执行完毕唤醒——LSU 与 CSRU 在 ROB 调度下完成延迟执行并写回 PRF 后发出 wakeup。三类唤醒覆盖了指令生命周期中所有可能产生结果的阶段，使后续依赖指令能尽早感知操作数就绪并被发射。
+
+Flush 恢复机制。当后端检测到分支预测错误或异常时，flush 信号同时送往 ROB、FreeList、BusyTable、FutureRAT 以及所有发射队列。FutureRAT 从 Arch RAT 的快照一拍恢复到已提交状态的映射；FreeList 同样根据 Arch RAT 快照重建空闲池。由于 Arch RAT 在提交时同步更新，其内容始终正确，因此恢复过程无需遍历 ROB，仅需一个周期。
+
+\section{分派级}
+
+分派级位于重命名级之后，负责将已完成寄存器重命名的微操作分发到对应的执行资源。分派级执行以下操作：
+
+\begin{enumerate}
+  \item 将指令写入 ROB，获取 ROB 标签（rob\_tag）作为指令在乱序流水线中的唯一标识。
+  \item 根据指令类型将指令分派到对应的发射队列：ALU 类指令进入 ALU IQ、乘除法指令进入 MDU IQ、 分支指令进入 BRU IQ。
+  \item 对于结果可在分派级直接确定的指令——JAL、JALR、LUI 与 AUIPC——分派级直接将计算结果写入 PRF 并发出 wakeup 信号，无需经过执行单元。这些指令的结果（链接地址 pc+4 或立即数加载值）仅依赖 PC 与立即数，在译码后即可获得，提前写回可减少后续依赖指令的等待周期。
+  \item 对于访存指令与 CSR 指令，采用保守的延迟执行策略：分派级仅将其写入 ROB，不送入发射队列，待指令到达 ROB 提交头部时再交由 LSU 或 CSRU 执行。访存指令的延迟执行避免了推测路径上的 Store 对内存状态造成不可撤销的副作用，简化了存储一致性维护；CSR 指令的延迟执行保证了特权级切换、中断使能等副作用严格按程序顺序生效，防止推测执行引发错误的系统状态变更。
+\end{enumerate}
+
+\section{发射队列与乱序发射}
+
+后端设置三个独立的发射队列，分别服务于 ALU、MDU 和 BRU 执行单元。在实现层面，得益于 Chisel 作为 Scala 嵌入式 DSL 的语言特性，发射队列采用泛型抽象类设计：
+
+\begin{lstlisting}[language=Scala,caption={泛型发射队列抽象类定义},label={lst:issue-queue-abs}]
+abstract class IssueQueue[T <: Data]
+  (gen: T, val entries: Int)
+  extends NPCModule {
+    ...
+  }
+\end{lstlisting}
+
+三个发射队列共享相同的入队、就绪检测与发射选择逻辑，唯一的差异在于类型参数 \lstinline|gen| 所携带的附加数据——例如 ALU 发射队列的 \lstinline|gen| 包含立即数与 ALU 操作码字段，而 BRU 和 MDU 的 \lstinline|gen| 则不含立即数。通过 Scala 的参数化类型，三个队列复用同一套核心实现，仅在类型层面区分载荷内容，避免了重复代码。同时，\lstinline|abstract class| 的设计允许派生出不同复杂度的具体实现：简单实现采用固定槽位逐项扫描，复杂实现可引入压缩表项（compacting entry）以在指令发射后自动前移后续表项、提高槽位利用率，两者对外接口完全一致，便于在面积与时序之间灵活权衡。
+
+每个发射队列在入队时记录指令的源物理寄存器号与 ROB 标签，在发射前通过 BusyTable 的读端口查询两个源操作数的就绪状态。当源操作数全部就绪时，指令即可被选中发射。由于多条指令可能同时就绪，发射队列内部通过优先级编码器选择最早入队的指令发射，保证公平性。
+
+wakeup 机制是乱序发射的关键驱动力。后端共有 5 个 wakeup 源：ALU 写回、MDU 写回、分派级立即数写入、LSU 写回与 CSRU 写回。当任一执行路径产生结果时，对应的 wakeup 信号广播到 BusyTable，将目的物理寄存器标记为就绪。发射队列在下一周期即可感知新的就绪状态并发射等待该操作数的指令，形成“执行—唤醒—发射”的连锁反应。
+
+\section{执行单元}
+
+后端包含五条执行路径，各路径独立运行，互不阻塞。与发射队列的设计思路类似，执行单元同样抽象出统一的泛型接口：
+
+\begin{lstlisting}[language=Scala,caption={执行单元抽象基类定义},label={lst:exec-unit-abs}]
+abstract class ExecUnit[I <: Data, O <: Data](
+  inGen: I, outGen: O, numReadPorts: Int = 2
+) extends NPCModule {
+  val prs1 = IO(Input(UInt(NRPhyRegBits.W)))
+  val prs2 = IO(Input(UInt(NRPhyRegBits.W)))
+  val prf  = IO(Vec(numReadPorts, new PRFReadPort))
+  val io = IO(new Bundle {
+    val in  = Flipped(Decoupled(inGen))
+    val out = Decoupled(outGen)
+  })
+}
+\end{lstlisting}
+
+\lstinline|ExecUnit| 通过类型参数 \lstinline|I| 和 \lstinline|O| 分别参数化输入载荷与输出载荷，所有执行单元共享统一的 PRF 读端口接口（\lstinline|prs1|、\lstinline|prs2|、\lstinline|prf|）与 Decoupled 握手协议（\lstinline|io.in| / \lstinline|io.out|）。ALU、MDU 与 BRU 继承该抽象类并特化各自的输入输出类型：ALU 的输入包含 ALU 操作码、立即数与立即数选择标志，输出包含运算结果与目的物理寄存器号；MDU 的输入包含 MDU 操作码，输出结构与 ALU 相同；BRU 的输入仅包含分支操作码，输出为分支结果标志（br\_flag）。这一设计使后端连线层可以统一处理发射队列到执行单元的对接逻辑，同时各执行单元内部实现完全独立。
+
+ALU 路径。处理整数算术逻辑运算（加减、移位、比较、逻辑运算等）。ALU 为单周期执行，从 ALU IQ 发射后经 PRF 读取源操作数、执行运算、写回 PRF 并向 ROB 报告完成，同时发出 wakeup。
+
+MDU 路径。处理乘法与除法运算。MDU 执行延迟不固定（乘法与除法周期数不同），通过 valid/ready 握手协议与发射队列和 ROB 交互。写回逻辑与 ALU 路径相同。
+
+BRU 路径。处理条件分支指令的实际比较。BRU 从 BRU IQ 发射后读取源操作数并计算分支条件（br\_flag），将结果报告给 ROB。BRU 不写 PRF——条件分支指令无目的寄存器。
+
+\section{延迟执行单元}\label{sec:late-exec}
+
+与通过发射队列乱序发射的 ALU/MDU/BRU 不同，LSU 与 CSRU 采用延迟执行（late execution）模式：指令在分派时仅写入 ROB，待到达 ROB 提交头部时才交付执行。延迟执行单元同样抽象出统一的泛型基类：
+
+\begin{lstlisting}[language=Scala,caption={延迟执行单元抽象基类定义},label={lst:late-exec-abs}]
+abstract class LateExecUnit[T <: Data](
+  gen: => T, numReadPorts: Int
+) extends NPCModule {
+  val late = IO(Flipped(ReqDone(gen)))
+  val prf  = IO(Vec(numReadPorts, new PRFReadPort))
+}
+\end{lstlisting}
+
+\lstinline|LateExecUnit| 通过类型参数 \lstinline|T| 参数化 ROB 传入的请求载荷，\lstinline|late| 端口采用 \lstinline|ReqDone| 握手协议（ROB 发起请求、执行单元返回完成），\lstinline|prf| 提供 PRF 读端口用于读取源操作数。LSU 与 CSRU 继承该基类并特化各自的请求类型与读端口数量。
+
+LSU 路径。处理 Load/Store 指令。ROB 将访存指令送至提交头部后通过 \lstinline|late| 端口交给 LSU，确保访存操作按程序顺序执行，简化了存储一致性维护。LSU 内部连接 DCache 与外设端口，并集成 dTLB 与 PTW 以支持 Sv39 地址翻译。LSU 写回通过独立的 PRF 写端口与 wakeup 通路完成。
+
+CSRU 路径。处理 CSR 读写指令。与 LSU 类似，由 ROB 在提交阶段通过 \lstinline|late| 端口交给 CSRU 执行，保证 CSR 操作的顺序语义。CSRU 同时负责中断与异常的状态管理，包括 trap 入口计算、mret/sret 返回地址提供、中断挂起检测等。
+
+\section{提交级}
+
+提交级（CommitStage）从 ROB 头部按程序顺序逐条提交指令，是乱序执行恢复顺序语义的关键环节。提交时执行以下操作：
+
+(1) 将指令的目的逻辑寄存器与新物理寄存器映射写入 Arch RAT，使确定性状态前进。
+
+(2) 将旧物理寄存器号（old\_prd）归还 FreeList，供后续指令重命名时分配。
+
+(3) 检查异常与中断：若提交头部的指令携带异常标记（如 page fault、非法指令）或检测到中断挂起，CommitStage 触发 trap 流程，通过 CSRU 获取 trap 入口地址，生成 redirect 信号指向异常处理程序，并发出 flush 清空流水线。
+
+(4) 处理 mret/sret 返回：提交 mret 或 sret 指令时，从 CSRU 读取 mepc 或 sepc 作为 redirect 目标。
+
+(5) 处理 fence.i 与 sfence.vma：提交这两类指令时，分别向外输出 fence\_i 和 sfence\_vma 信号，通知 ICache 失效或 TLB 刷新。
+
+(6) 分支验证：对于条件分支指令，将 BRU 写回的实际跳转结果与前端预测进行比对。若预测错误，生成 redirect 信号携带正确的目标地址与分支信息，同时发出 flush。
+
+(7) 调试探针（probe）：提交时输出指令的 PC、下一条 PC、指令字、通用寄存器（GPR, General Purpose Register）状态与 CSR 状态等信息，供 DiffTest 框架与参考模型逐条比对，实现运行时正确性验证。
+
+\section{本章小结}
+
+本章介绍了后端乱序执行引擎的设计。后端采用译码、重命名、分派、发射、执行、写回、（晚执行）、提交的经典乱序流水线结构，通过统一物理寄存器文件与 FutureRAT/ArchRAT 双映射表实现寄存器重命名，消除 WAW 与 WAR 假依赖。五条独立执行路径（ALU、MDU、BRU、LSU、CSRU）并行运行，其中 ALU/MDU/BRU 通过发射队列乱序发射，LSU 与 CSRU 通过 ROB 延迟执行以保证顺序语义。提交级按序提交并处理异常、中断、分支验证与调试输出。flush 恢复仅需一周期，利用 ArchRAT 快照同时重建 FutureRAT 与 FreeList。

@@ -1,0 +1,283 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{性能评估}
+
+为定量评估本处理器在典型工作负载下的微架构行为，本章在 RTL 仿真环境中选取三组广泛使用的基准程序进行端到端性能测试，覆盖综合性整数基准（MicroBench）、经典系统编程基准（Dhrystone~\cite{weicker1984dhrystone}）与嵌入式行业标准基准（CoreMark~\cite{coremark2009}）。在此基础上，通过在 RTL 与仿真器两侧协同添加的性能计数器，从 IPC、分支预测命中率、缓存命中率与平均访存时间（AMAT, Average Memory Access Time）、前端取指率、指令混合等多个维度对处理器行为进行定量分析。
+
+\section{实验方法与计数器实现}
+
+\subsection{仿真环境}
+
+性能评估在本文基于 Verilator 构建的 C++20 仿真平台上运行，所有被测程序均以 rv64im\_zicsr\_zifencei~\cite{riscv2024unpriv} 为目标架构交叉编译，运行于 Abstract Machine~\cite{nju_abstract_machine} 抽象层提供的裸机环境中，不经操作系统调度。裸机程序通过执行 \lstinline|ebreak| 实现停机。
+
+\subsection{计数器架构}
+
+性能计数器采用 DPI-C 事件方案实现。提交相关事件（commit、branch、branch\_mispredict、flush 以及按 \lstinline|InstType| 划分的十类指令混合）与缓存相关事件（访问、命中、未命中、Miss Cycles、IFU 输出有效、IFU 停顿等）均通过一个仅用于仿真的 SystemVerilog~\cite{ieee2017systemverilog} 外部模块 \lstinline|PerfEventHelper| 在触发时钟沿调用 DPI-C~\cite{ieee2017systemverilog} 函数 \lstinline|npc_perf_event(id)|，由 C++ 侧 \lstinline|PerfCounters| 统一累加。
+
+这种“事件导出、仿真侧聚合”的方式与业界主流开源处理器性能监控单元（PMU, Performance Monitoring Unit~\cite{arm2024armArm}~\cite{wang2023xiangshan}）的观测思路一致：将观测逻辑尽量与处理器主数据通路解耦，降低统计机制对微架构实现的侵入性。后续可扩展为纯 RTL 实现的 PMU。
+
+\subsection{指标定义}
+
+本章使用的关键指标定义如下：
+
+\begin{table}[H]
+  \centering
+  \caption{性能评估关键指标定义}
+  \label{tbl:perf-metrics}
+  \begin{tabular}{cl}
+    \toprule
+    指标 & 定义 \\
+    \midrule
+    IPC & 已提交指令数 / 复位释放后的总仿真周期数 \\
+    Branch Hit Rate & 正确预测的控制流指令数 / 控制流指令总数 \\
+    Cache Hit Rate & 缓存命中次数 / 缓存访问次数 \\
+    AMAT & $1 + \text{缺失周期数}/\text{访问次数}$（命中按 1 周期计） \\
+    IFU Stall Ratio & IFU 未输出有效指令的周期数 / 总周期数 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+其中 AMAT 的定义将命中基准归一化为 1 个周期，缺失时新增的等待周期全部计入访问摊销。由于本实现中缓存命中即可在同一周期返回数据，该公式等价于 $\text{命中延迟} \times \text{命中率} + \text{缺失延迟} \times \text{缺失率}$。
+
+\subsection{基准程序简介}
+
+为覆盖不同维度的处理器行为，本实验选取的三组基准程序在设计思路上互为补充，分别代表“算法异质性”、“系统编程典型语句”与“嵌入式工业标准”三类不同的评测视角：
+
+\begin{itemize}
+  \item MicroBench~\cite{microbench2024}：南京大学体系结构教学组设计的基准测试集，包含 10 个功能各异的子测试——\lstinline|qsort| 快速排序、\lstinline|queen| 位运算实现的 n 皇后、\lstinline|bf| Brainf**k 解释器、\lstinline|fib| 矩阵法 Fibonacci、\lstinline|sieve| Eratosthenes 筛法、\lstinline|15pz| A* 求解 4×4 数码问题、\lstinline|dinic| 二分图最大流、\lstinline|lzip| 压缩、\lstinline|ssort| 后缀排序与 \lstinline|md5| 哈希。这些子测试覆盖排序、回溯搜索、解释器、动态规划、图算法、压缩与密码学计算等差异显著的算法形态，可暴露处理器在不同控制流与访存模式下的稳态行为。MicroBench 提供 \lstinline|test|/\lstinline|train|/\lstinline|ref|/\lstinline|huge| 四档输入规模（动态指令数约 300K / 60M / 2B / 50B），选用 \lstinline|train| 档是因为运行时间适中且能合理展示本设计的性能。
+  \item Dhrystone~\cite{weicker1984dhrystone}：由 Weicker 于 1984 年提出的综合整数基准，无浮点（本设计不支持浮点）、无 I/O、不依赖操作系统。主循环由若干典型系统编程语句构成，包括结构体字段读写、字符串库函数 \lstinline|strcmp|/\lstinline|strcpy|、过程调用与条件分支，旨在反映通用整数处理的指令混合与访存密度。本实验使用 Dhrystone v2.2。
+  \item CoreMark~\cite{coremark2009}：EEMBC 于 2009 年发布的嵌入式行业标准基准，由链表插入/删除/查找、矩阵乘法/反转与状态机 CRC 三类核心算法组成。EEMBC 通过算法间的数据依赖与运行时种子参数显著抑制了编译器的常量折叠、死代码消除等优化空间，使评分难以通过单纯的编译技巧“作弊”，从而较 Dhrystone 更能反映核心微架构的真实性能。
+\end{itemize}
+
+所有被测基准程序均以 C 语言编写，使用 \lstinline|riscv64-none-elf-gcc| 15.2.0 交叉编译，编译参数统一为 \lstinline|-O2|。
+
+\subsection{基准程序配置}
+
+考虑到 RTL 仿真速度约为 0.1 MIPS 量级，若采用 benchmark 默认配置则单次运行可能需要数小时甚至数十小时，严重影响实验迭代效率。因此本实验对各基准程序的规模参数进行了合理压缩，具体配置如下：
+
+\begin{table}[H]
+  \centering
+  \caption{基准程序规模与配置说明}
+  \label{tbl:perf-bench-config}
+  \begin{tabular}{cll}
+    \toprule
+    基准 & 规模 & 说明 \\
+    \midrule
+    MicroBench~\cite{microbench2024} & \lstinline|train| & Microbench 的 \lstinline|train| 动态指令数约为 60M，本实验实际跑出约 73M 提交指令 \\
+    Dhrystone~\cite{weicker1984dhrystone} & 140000 iter & Dhrystone 140,000 iter 与 Microbench train 的动态指令数，数量级相同 \\
+    CoreMark~\cite{coremark2009} & 200 iterations & CoreMark 200 iterations 与 Microbench train 的动态指令数，数量级相同 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+需要说明的是，基准程序规模的压缩仅影响数据工作集与运行时长，不改变其指令混合特征与访存模式，因此对 IPC、命中率、分支预测率等微架构指标的评估结论具有代表性。
+
+\section{总体性能结果}\label{sec:perf-pipeline}
+
+三组基准程序的整体执行统计如表~\ref{tbl:perf-overview} 所示。
+
+\begin{table}[H]
+  \centering
+  \caption{基准程序整体执行统计}
+  \label{tbl:perf-overview}
+  \begin{tabular}{lrrrr}
+    \toprule
+    基准 & 周期数 & 提交指令数 & IPC & CPI \\
+    \midrule
+    MicroBench (train) & 155\,612\,739 & 73\,354\,577 & 0.4714 & 2.12 \\
+    Dhrystone & 142\,530\,258 & 64\,453\,461 & 0.4522 & 2.21 \\
+    CoreMark (200 iter) & 129\,901\,647 & 71\,795\,820 & 0.5527 & 1.81 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+三组负载的 IPC 分别为 0.47、0.45 与 0.55，CPI 对应为 2.12、2.21 与 1.81；IPC 随负载特性分层出现，其中 CoreMark 由于存在较多长直线段和极高的 ICache 命中率（见表~\ref{tbl:perf-icache}），可被流水前端连续供应指令，因而取得最高的 IPC。MicroBench train 与 Dhrystone 的 IPC 接近（0.4714 vs 0.4522），两者差距主要来自前端停顿比例与分支误预测惩罚的不同。
+
+从前后端协同角度看，可以引入一个反映前后端协同效率的指标 \lstinline|commit / ifu_deliver|（\lstinline|ifu_deliver| 见表~\ref{tbl:perf-fe-events}）：其中 \lstinline|ifu_deliver| 是前端 IFU 在 F3 段成功交付给后端的指令数（即“塞入”指令队列的有效指令数），\lstinline|commit| 则是后端 ROB 最终顺序提交并写回架构状态的指令数。两者之差对应“被前端发出，但因分支误预测、异常或 \lstinline|fence.i| / CSR 写等 serializing 事件而中途被流水线 flush 掉的指令”，因此该比值在理想情况下应趋近于 1，比值越接近 1 说明前端推测发出的指令越少被作废，前后端的协同效率越高。
+
+本实现下该比值在三组负载上分别为 MicroBench $\approx$ 0.877（73\,354\,577 / 83\,659\,693）、Dhrystone $\approx$ 0.911（64\,453\,461 / 70\,759\,218）与 CoreMark $\approx$ 0.908（71\,795\,820 / 79\,038\,883），整体稳定在 0.88--0.91 区间。换言之，每 100 条由前端送往后端的指令中约有 9--12 条最终被作废。结合本处理器的流水线深度可对这一损耗给出合理解释：前端 F1/F2/Fp/F3 共 4 级，后端经译码、重命名、分派、发射、执行、写回到提交共约 7 级，整条流水线深度达到 4+7 级；当后端在提交点确认一次分支误预测时，CommitStage 通过 \lstinline|io.flush| 在一个周期内同时清空前端 IFU 的所有流水段、指令队列以及后端从重命名到写回的所有流水段，单次 flush 损失的有效工作量近似等于流水线深度。该比值反映了“全流水线 flush”恢复策略放大了每次分支误预测的代价。
+
+要进一步提升该比值，可考虑降低单次 flush 的惩罚：例如分支预测出错误，可以在执行阶段就对前端做重定向，而不是要等到提交时再对前端做重定向，降低分支指令带来的惩罚。
+
+\section{前端事件分析}\label{sec:perf-fe-breakdown}
+
+为进一步定位前端中各段的开销，表~\ref{tbl:perf-fe-events} 列出了前端 PerfEvent 在三组负载上的计数。事件含义与指标定义见表~\ref{tbl:perf-metrics}。需要说明的是，本实验运行于 Abstract Machine 裸机环境，未配置页表也未启用 Sv39 分页，iTLB 查表全程被旁路，因此 F1 TLB-miss 计数对所有负载均为 0，下表不再单独列出该列。
+
+\begin{table}[H]
+  \centering
+  \caption{前端各段事件计数}
+  \label{tbl:perf-fe-events}
+  \begin{tabular}{lrrrr}
+    \toprule
+    基准 & IFU deliver Inst. & IFU stall Cyc. & F2 ICache wait Cyc. & Fp resp wait Cyc. \\
+    \midrule
+    MicroBench (train) & 83\,659\,693 & 49\,889\,859 & 20\,745\,873 & 6\,818 \\
+    Dhrystone (140 000) & 70\,759\,218 & 58\,294\,840 & 15\,433\,031 & 1\,933 \\
+    CoreMark (200 iter) & 79\,038\,883 & 44\,685\,323 & 4\,754\,811 & 4\,041 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+主要观察：
+
+\begin{enumerate}
+  \item ICache 是首要前端停顿源：\lstinline|F2 ICache wait| 在所有负载上都是前端停顿周期的主导项。其中 MicroBench train 的 ICache 等待周期达到 20.7M，占总周期的 13.3\%，对应 IFU 总停顿比 32.06\%（49.9M / 155.6M 周期）；Dhrystone 的 ICache 等待周期为 15.4M，占总周期的 10.8\%，对应 IFU 总停顿比 40.90\%（58.3M / 142.5M 周期）；CoreMark 由于工作集小、ICache 命中率几近 100\%，ICache 等待仅 4.75M 周期、占总周期 3.66\%，对应 IFU 总停顿比 34.40\%（44.7M / 129.9M 周期）。这说明 ICache 等待是前端停顿的主导但非全部，剩余部分由 Fp 段排队、后端反压与重定向气泡构成。这一观察表明前端剩余性能主要受制于缓存与主存之间的传输带宽，而非流水线结构本身。
+  \item Fp 响应等待极少：\lstinline|Fp resp wait| 在所有负载上均不到 7\,000 周期（最高为 MicroBench 的 6\,818），表明在典型负载下 ICache 的访问延迟大多可以被流水覆盖，Fp 作为“in-flight 缓冲段”承担了绝大多数 cache 响应周期的吸收工作。
+\end{enumerate}
+
+\section{分支预测性能分析}
+
+表~\ref{tbl:perf-bp} 展示了 GShare + IJTC + RAS 组合预测器在三组负载中的表现。RAS 的 push/pop 挂在 \lstinline|io.out.fire| 而非 F3 出现的时刻，这使得投机路径上的 call/ret 不会污染预测器状态，在命中率上带来轻微但可见的收益。
+
+\begin{table}[H]
+  \centering
+  \caption{分支预测命中率}
+  \label{tbl:perf-bp}
+  \begin{tabular}{lrrr}
+    \toprule
+    基准 & 控制流指令数 & 误预测数 & 命中率 \\
+    \midrule
+    MicroBench (train) & 11\,282\,371 & 1\,018\,777 & 90.97\% \\
+    Dhrystone & 13\,031\,054 & 420\,686 & 96.77\% \\
+    CoreMark (200 iter) & 12\,198\,756 & 717\,443 & 94.12\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+三组负载的命中率与控制流复杂度相关：
+
+\begin{enumerate}
+  \item Dhrystone 的主循环由大量紧凑的测试步骤组成，控制流以规则的 for 循环回跳与固定方向的条件分支为主，GShare 的历史寄存器能够在少量模式上收敛，达到 96.77\% 的预测准确率；
+  \item CoreMark 包含链表遍历、矩阵搜索与状态机三类控制流，其中链表与状态机分支的方向与全局历史相关性强，GShare 仍能取得 94.12\% 的准确率；
+  \item MicroBench train 规模包含 10 个结构各异的 micro-kernel，单个子测试的动态指令量级已达 7M+，GShare 历史寄存器能够在每个子测试内部充分收敛；但子测试之间结构差异（排序、A* 搜索、解释器、压缩、哈希等）仍带来一定预测器抖动，整体命中率为 90.97\%，低于循环密集的 Dhrystone（96.77\%）与 CoreMark（94.12\%）。
+\end{enumerate}
+
+整体而言，本设计的 GShare + IJTC + RAS 组合在三组负载上的命中率均处于 90\% 以上的区间，得到与 GShare 原始论文~\cite{mcfarling1993combining} 相似的实验结果。
+
+\section{缓存子系统性能分析}
+
+表~\ref{tbl:perf-icache} 与表~\ref{tbl:perf-dcache} 分别展示了 ICache 与 DCache 的访问行为。两个 Cache 均为 4 路组相联、64 组、64 字节缓存行的 VIPT 结构，采用 Pseudo-LRU 替换策略。
+
+\begin{table}[H]
+  \centering
+  \caption{ICache 访问行为}
+  \label{tbl:perf-icache}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    基准 & 访问数 & 缺失数 & 命中率 & 平均缺失代价 & AMAT \\
+    \midrule
+    MicroBench (train) & 115\,033\,542 & 489 & 99.9996\% & 20.00 cyc & 1.0001 \\
+    Dhrystone & 105\,516\,146 & 115 & 99.9999\% & 21.57 cyc & 1.0000 \\
+    CoreMark (200 iter) & 107\,236\,775 & 265 & 99.9998\% & 19.59 cyc & 1.0000 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{DCache 访问行为}
+  \label{tbl:perf-dcache}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    基准 & 访问数 & 缺失数 & 命中率 & 平均缺失代价 & AMAT \\
+    \midrule
+    MicroBench (train) & 17\,183\,497 & 537\,411 & 96.87\% & 21.15 cyc & 1.6615 \\
+    Dhrystone & 24\,096\,978 & 868 & 99.9964\% & 32.21 cyc & 1.0012 \\
+    CoreMark (200 iter) & 15\,032\,419 & 1\,025 & 99.9932\% & 34.55 cyc & 1.0024 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+ICache 在三组负载下均取得 99.99\% 以上的命中率，AMAT 接近理想的 1 周期，说明 4 KiB 容量（4 路 $\times$ 64 组 $\times$ 64 字节）对所有被测程序的指令工作集都具有充分覆盖——这与 MicroBench/Dhrystone/CoreMark 均为单线程短循环程序的特征相符。
+
+DCache 的命中率整体仍然较高，但 MicroBench train 的 96.87\% 明显低于另外两组。该差异主要源于工作集大小的悬殊差异：MicroBench 的多数子测试都会在堆上分配大于 DCache 容量的数据结构（参见 MicroBench 文档，\lstinline|qsort|/\lstinline|sieve|/\lstinline|15pz|/\lstinline|dinic|/\lstinline|lzip|/\lstinline|ssort|/\lstinline|md5| 等子测试 train 档堆区使用量级在 64 KB 至数 MB 之间，远超 4 KiB DCache 容量），并对其进行近似随机的访问，产生大量容量缺失与冲突缺失；而 Dhrystone 与 CoreMark 的工作集均小于 4 KiB（Dhrystone 主循环活跃数据仅有几个全局结构体与字符串缓冲区，CoreMark 默认 \lstinline|TOTAL_DATA_SIZE| 为 2\,000 字节的链表/矩阵/状态机数据缓冲区），因此命中率均在 99.99\% 以上。
+
+DCache 的平均缺失代价（21--35 周期）整体高于 ICache（约 20--22 周期），源于 DCache 支持写回策略——当替换脏行时需要先发起一次 AXI4 写 Burst，再启动读 Burst 补齐新行，较 ICache 的单向读 Burst 多一次往返延迟。
+
+从 AMAT 角度看，即使在最差情形下（MicroBench train 的 DCache），AMAT 仅为 1.66 周期，表明 Cache 的平均开销相比后端流水线延迟可忽略，因而 Cache 并不是当前实现的性能瓶颈。
+
+\section{性能指标换算}
+
+基于表~\ref{tbl:perf-overview} 中的周期数，可进一步换算出若干行业通行的性能指标，便于与商用处理器横向比较。
+
+Dhrystone MIPS（DMIPS）以 DEC VAX 11/780\footnote{DEC 于 1977 年发布的 32 位 VAX 小型机，常被用作 Dhrystone 性能换算中的历史参考基线。参考文献：\cite{strecker1978vax11780}} 在 Dhrystone 基准上达到的 1757 Dhrystones/sec 作为 1 MIPS(million instruction per second) 的参考点，即
+
+\[
+\mathrm{DMIPS} = \frac{\mathrm{Dhrystones\ per\ second}}{1757}
+\]
+
+DMIPS/MHz 进一步除以处理器的时钟频率（MHz），得到一个频率无关的标量，便于跨架构、跨工艺横向比较核心微架构的整数处理效率。代入仿真给出的指令数与周期数后，频率项与时间项相消，得到等价的离线计算公式：
+
+\[
+\mathrm{DMIPS/MHz} = \frac{\mathrm{NUMBER\_OF\_RUNS} \times 10^6}{\mathrm{cycles} \times 1757}
+\]
+
+CoreMark 的换算关系类似但更直接，CoreMark/MHz 即“每兆赫兹每秒完成的 iteration 数”：
+
+\[
+\mathrm{CoreMark/MHz} = \frac{\mathrm{iterations} \times 10^6}{\mathrm{cycles}}
+\]
+
+按上述公式代入表~\ref{tbl:perf-overview} 的数据，得到本设计的工业性能指标如表~\ref{tbl:perf-industrial} 所示。
+
+\begin{table}[H]
+  \centering
+  \caption{本处理器的工业性能指标}
+  \label{tbl:perf-industrial}
+  \begin{tabular}{lr}
+    \toprule
+    基准 & 得分 \\
+    \midrule
+    Dhrystone (DMIPS/MHz) & 0.559 \\
+    CoreMark (CoreMark/MHz) & 1.540 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+与同档教学/工业核对照。作为商用对照，ARM 官方 Cortex-M 处理器对照表~\cite{arm2024cortexm3} 给出 Cortex-M0 约 0.84 DMIPS/MHz、2.33 CoreMark/MHz；同时，单发射开源核的 OpenLA500~\cite{openla500}（龙芯社区开源的 LoongArch32r 五级流水核）在 0.13~$\mu$m 工艺流片下取得 0.78 DMIPS/MHz 与 2.75 CoreMark/MHz。图~\ref{fig:perf-cmp} 以条形图方式展示本设计与上述两核在两项工业基准上的对照。
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      xbar,
+      width=12cm, height=6.5cm,
+      xmin=0,
+      symbolic y coords={CoreMark/MHz, DMIPS/MHz},
+      ytick=data,
+      xlabel={得分},
+      legend pos=south east,
+      bar width=8pt,
+      enlarge y limits=0.45,
+    ]
+      \addplot coordinates {(0.559,DMIPS/MHz) (1.540,CoreMark/MHz)};
+      \addplot coordinates {(0.84,DMIPS/MHz) (2.33,CoreMark/MHz)};
+      \addplot coordinates {(0.78,DMIPS/MHz) (2.75,CoreMark/MHz)};
+      \legend{本设计, Cortex-M0, OpenLA500}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{本设计与 Cortex-M0、OpenLA500 在 Dhrystone 与 CoreMark 上的得分对照}
+  \label{fig:perf-cmp}
+\end{figure}
+
+由图~\ref{fig:perf-cmp} 可以看到，本实现的 Dhrystone 与 CoreMark 得分均落后于 Cortex-M0 与 OpenLA500，其中 Dhrystone 落后约 28\%--34\%，CoreMark 落后约 34\%--44\%。与上述两核的差距主要来自以下三点：
+
+\begin{enumerate}
+  \item 稳态 IPC 仍处 0.45 区间——前端停顿主导的气泡损失，留下了较大的 IPC 提升空间，详见~\ref{sec:perf-fe-breakdown} 节
+  \item 本实验编译选项为 \lstinline|-O2|，未启用 ARM/龙芯官方报告中常用的 \lstinline|-Ofast| 与 PGO\footnote{PGO（Profile-Guided Optimization）即“反馈导向优化”：先以插桩版本运行代表性负载收集热点画像，再基于该画像进行二次编译优化。} 等更激进优化；
+  \item 未对 Dhrystone 中频繁调用的 \lstinline|strcmp|/\lstinline|strcpy| 等库函数做专门的汇编级优化，而商用嵌入式核与 OpenLA500 这类成熟开源核普遍会在 newlib/picolibc 中为这些热点路径提供针对性实现。
+\end{enumerate}
+
+\section{本章小结}
+
+本章基于 MicroBench、Dhrystone 与 CoreMark 三组基准程序，结合 RTL 寄存器 + DPI-C 事件的混合性能计数器实现，对本处理器进行了多维度的性能评估。主要结论如下：
+
+\begin{enumerate}
+  \item 三组负载 IPC 分别为 0.47 / 0.45 / 0.55，CPI 对应为 2.12 / 2.21 / 1.81；前后端指令守恒关系 \lstinline|commit / ifu_deliver| 处于 0.88--0.91 区间，表明前端与后端共同参与了瓶颈构成；
+  \item 前端事件分解显示，IFU 总停顿分别为 49.9M / 58.3M / 44.7M 周期，其中 F2 阶段 ICache 等待是主要来源；MicroBench、Dhrystone、CoreMark 的 IFU 停顿比分别为 32.06\% / 40.90\% / 34.40\%，说明前端瓶颈主要受缓存访存等待与重定向气泡共同影响；
+  \item 分支预测在循环密集负载（Dhrystone）上达到 96.77\% 的高命中率，在异构 micro-kernel 集合（MicroBench train）上为 90.97\%，CoreMark 为 94.12\%，三组负载命中率均在 90\% 以上，整体表现与同类 GShare 方案的水平相当；
+  \item ICache 在三组负载下均取得 99.9996\% 以上命中率、AMAT 接近 1 周期；DCache 除 MicroBench train 因工作集显著大于 4 KiB 容量而降至 96.87\% 外，其余负载均超过 99.99\%，Cache 子系统表现稳定；
+  \item 工业指标方面，本设计达到 0.559 DMIPS/MHz 与 1.540 CoreMark/MHz；与图~\ref{fig:perf-cmp} 中 Cortex-M0（0.84 / 2.33）和 OpenLA500（0.78 / 2.75）的对照表明，当前差距主要来自稳态 IPC 偏低。
+\end{enumerate}
+
+上述结果定量刻画了本处理器的性能画像。本文建立的“RTL 寄存器 + DPI-C 事件”混合性能计数器框架既能给出整体 IPC、Cache 命中率等宏观指标，也能分解前端停顿与分支行为等细粒度开销，为后续微架构迭代（如双发射前端、L2 Cache、流水化乘除单元）提供可复用的定量评估基础。
