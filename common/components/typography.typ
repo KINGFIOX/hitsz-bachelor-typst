@@ -27,10 +27,12 @@
 
 #let heading-level-1-style(
   it,
-  // chapter beforeskip ≈ 28.35pt，inset 模式直接使用即可（不需补 5pt）
-  above: 28.35pt,
-  // chapter afterskip ≈ 28.75pt，block.below 模式需 + 5pt 字体上下伸补偿
-  below: 33.75pt,
+  // 实测同学论文 thesis.pdf 第一章页章标题 yMin=130.05pt（margin.top 38mm = 107.7pt 起算）
+  // 即 above 在 Typst 中等效约 25.4pt（受 CJK 黑体 ascender 影响，与 LaTeX 28.35pt 略有偏差）
+  above: 25.4pt,
+  // 实测同学论文 thesis.pdf 章后第一个二级标题（"1.1" yMin=177.55pt）相对章 yMin 偏移 47.5pt
+  // 故 chapter.below 取 32.1pt 与 section.above 24.85pt 折叠后等效约 47.5pt
+  below: 32.1pt,
 ) = {
   set align(center)
   set text(font: 字体.黑体, size: 字号.小二, weight: "regular")
@@ -57,8 +59,8 @@
 
 #let use-heading-preface(
   content,
-  heading-above: (28.35pt,),
-  heading-below: (33.75pt,),
+  heading-above: (25.4pt,),
+  heading-below: (32.1pt,),
 ) = {
   show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
     heading-below,
@@ -70,19 +72,24 @@
 
 #let use-heading-main(
   content,
-  // chapter inset.top 用 LaTeX beforeskip 28.35pt（不补字体上下伸）；
-  // section / subsection / subsubsection 是 block.above，需要在 LaTeX
-  // before/afterskip (19.84 / 17.01 / 8.50) 基础上再 + 5pt 补偿字体上下伸
-  heading-above: (28.35pt, 24.85pt, 22.0pt, 13.5pt),
-  // chapter block.below 用 LaTeX afterskip 28.75 + 5pt = 33.75pt；其余三级同 above
-  heading-below: (33.75pt, 24.85pt, 22.0pt, 13.5pt),
+  // chapter above/below 通过经验测量调整，使章标题、章后首节都对齐 LaTeX:
+  //   chapter above 25.4pt → 章标题 yMin 对齐 LaTeX 130.05pt
+  //   chapter below 32.1pt + section above 24.85pt 折叠 → 章后首节 yMin 对齐 177.55pt
+  // section/subsection/subsubsection: LaTeX before/afterskip (19.84/17.01/8.50) + 5pt 字体上下伸补偿
+  heading-above: (25.4pt, 24.85pt, 22.0pt, 13.5pt),
+  heading-below: (32.1pt, 24.85pt, 22.0pt, 13.5pt),
 ) = {
+  // LaTeX hithesisbook.cls (harbin bachelor) ctexset 中的 aftername:
+  //   chapter:        \enspace      （0.5em，即半角空白 U+2002）
+  //   section:        \quad         （1em，即全角空白 U+2003，因 harbin&bachelor 命中）
+  //   subsection:     \quad         （同上）
+  //   subsubsection:  \quad         （同上）
   set heading(numbering: numbly(
-    "第{1:1}章   ",
-    "{1}.{2}   ",
-    "{1}.{2}.{3}   ",
-    "{1}.{2}.{3}.{4}   ",
-    "{1}.{2}.{3}.{4}.{5}   ",
+    "第{1:1}章\u{2002}",
+    "{1}.{2}\u{2003}",
+    "{1}.{2}.{3}\u{2003}",
+    "{1}.{2}.{3}.{4}\u{2003}",
+    "{1}.{2}.{3}.{4}.{5}\u{2003}",
   ))
 
   show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
@@ -125,8 +132,8 @@
 
 #let use-heading-end(
   content,
-  heading-above: (28.35pt,),
-  heading-below: (33.75pt,),
+  heading-above: (25.4pt,),
+  heading-below: (32.1pt,),
 ) = {
   show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
     heading-below,

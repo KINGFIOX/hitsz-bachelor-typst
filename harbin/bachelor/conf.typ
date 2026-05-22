@@ -197,7 +197,9 @@
 
   set page(
     paper: "a4",
-    margin: (top: 36.5mm, left: 30mm, right: 30mm, bottom: 28.8mm),
+    // 见 common/config/constants.typ 中关于 top 的注释：38mm 对应 LaTeX
+    // top=36.5mm + \topskip 视觉位置（实测同学 thesis.pdf 首行 yMin=37.32mm）
+    margin: (top: 38mm, left: 30mm, right: 30mm, bottom: 28.8mm),
   )
 
   show: show-cn-fakebold

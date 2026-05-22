@@ -50,11 +50,17 @@
 
 // LaTeX 模板 (hithesisbook.cls，harbin bachelor 分支) 页面几何：
 //   text width  = 150 mm（与 a4 210 mm 减去左右各 30 mm 一致）
-//   top         = 36.5 mm
+//   top         = 36.5 mm（LaTeX 语义：首行基线 ≈ top + \topskip(=12pt)）
 //   bottom      = 28.8 mm
 //   left/right  = 30 mm
+//
+// Typst 与 LaTeX 的"上边距"语义不同：Typst 默认 top-edge=cap-height，
+// 即 margin.top 对齐的是首行 cap-height 顶端，而 LaTeX 的 top 对齐的是
+// "首行基线之上 \topskip(=12pt) 的位置"。实测同学论文 (yjj/thesis.pdf)
+// 首行 yMin = 105.82pt = 37.32mm，对应 Typst 中需要 margin.top ≈ 38mm。
+// 因此 page-margins.top 取 38mm 而非 36.5mm，以使首行视觉位置对齐 LaTeX。
 #let page-margins = (
-  top: 36.5mm,
+  top: 38mm,
   bottom: 28.8mm,
   left: 30mm,
   right: 30mm,

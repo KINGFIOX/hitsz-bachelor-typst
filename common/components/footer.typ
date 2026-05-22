@@ -15,7 +15,9 @@
 
     set page(
       footer: footer-body,
-      footer-descent: footer-ascent,
+      // Typst footer-descent 实测语义：body-bottom 到 footer 顶端的距离。
+      // 实测 LaTeX yMin=767.95pt - body_bottom(760.23pt) = 7.72pt → footer-descent=7.7pt
+      footer-descent: 7.7pt,
     )
 
     content
@@ -36,7 +38,9 @@
 
     set page(
       footer: footer-body,
-      footer-descent: 11.5pt,
+      // Typst footer-descent 实测语义：body-bottom 到 footer 顶端的距离。
+      // 实测 LaTeX 页码 yMin=767.95pt - body_bottom(760.23pt) = 7.72pt → footer-descent=7.7pt
+      footer-descent: 7.7pt,
       // footer-descent: footer-ascent,
     )
 
