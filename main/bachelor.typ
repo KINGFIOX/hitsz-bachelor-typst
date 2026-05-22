@@ -105,13 +105,13 @@
     // 作者电子签名图片及其偏移
     author-signature: [ #image("images/wangjin.png", height: 2.5em) ],
     author-signature-offsets: (
-      (dx: 13em, dy: 20.8em),
-      (dx: 13em, dy: 49.5em),
+      (dx: 13em, dy: 20.0em),
+      (dx: 13em, dy: 49.0em),
     ),
     // 导师电子签名图片及其偏移
     supervisor-signature: [ #image("images/xuerui.png", height: 3.5em) ],
     supervisor-signature-offsets: (
-      (dx: 11.7em, dy: 52.5em),
+      (dx: 11.7em, dy: 52.0em),
     ),
     // 日期及其偏移
     // date-array: (
@@ -126,19 +126,19 @@
     ),
     date-offsets: (
       (
-        (dx: 26em, dy: 22em),
-        (dx: 30.25em, dy: 22em),
-        (dx: 32.5em, dy: 22em),
+        (dx: 26em, dy: 21em),
+        (dx: 30.25em, dy: 21em),
+        (dx: 32.5em, dy: 21em),
       ),
       (
-        (dx: 26em, dy: 50.5em),
-        (dx: 29.6em, dy: 50.5em),
-        (dx: 32em, dy: 50.5em),
+        (dx: 26em, dy: 49.7em),
+        (dx: 29.6em, dy: 49.7em),
+        (dx: 32em, dy: 49.7em),
       ),
       (
-        (dx: 26em, dy: 53.8em),
-        (dx: 29.6em, dy: 53.8em),
-        (dx: 32em, dy: 53.8em),
+        (dx: 26em, dy: 52.7em),
+        (dx: 29.6em, dy: 52.7em),
+        (dx: 32em, dy: 52.7em),
       ),
     ),
     // 是否显示原创性声明页的页码
