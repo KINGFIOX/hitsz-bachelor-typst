@@ -12,14 +12,18 @@
   }
 
   // LaTeX hithesisbook.cls 中页眉双线的精确尺寸（line 446-451）：
-  //   \vskip 1.190132pt   % 文字基线下到粗线之间的空隙
+  //   \vskip 1.190132pt   % LaTeX: 从字身盒底部 (含 depth) 到粗线的空隙
   //   \hrule height 2.276208pt    % 粗线
   //   \vskip 0.75pt       % 粗线与细线之间的空隙
   //   \hrule height 0.75pt        % 细线
+  //
+  // Typst 的 block(below) 是从字形实际下边缘算起，FandolSong 有较深的下伸，
+  // 所以原值 1.19pt 会让中文字底紧贴粗线。补齐 LaTeX 字身 depth ≈ 3pt，
+  // 实测 4.5pt 时空隙与同学 PDF 视觉一致。
   let header-body = [
     #set align(center)
     #text(font: 字体.宋体, size: 字号.小五)[
-      #block(below: 1.19pt)[
+      #block(below: 4.5pt)[
         #internal-header-text
       ]
     ]
@@ -37,9 +41,11 @@
           #header-body
         ]
       },
-      // 实测同学论文 thesis.pdf 页眉文字 yMin=86.68pt(=30.59mm)，
-      // header-ascent=11.25pt 时 Typst 输出页眉 yMin≈86.68pt（实测对齐）。
-      header-ascent: 11.25pt,
+      // 实测同学论文 thesis.pdf 页眉文字 yMin=86.68pt(=30.59mm)。
+      // 注：把 block(below) 从 1.19pt 提到 4.5pt 后，header 内容变高
+      // 把文字往上顶了 2.67pt，所以这里同步把 ascent 从 11.25 缩到 8.58
+      // 让文字 yMin 回到 86.68pt。
+      header-ascent: 8.58pt,
       // header-ascent: header-ascent,
     )
     content

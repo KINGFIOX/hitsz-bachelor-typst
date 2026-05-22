@@ -20,11 +20,17 @@
   八号: 5pt,
 )
 
+// 与同学的 LaTeX 模板 (hithesisbook.cls + ctexbook[fontset=fandol]) 对齐：
+//   - Latin main : TeX Gyre Termes (URW Nimbus Roman, Times-clone, 开源)
+//   - Latin mono : TeX Gyre Cursor (URW Nimbus Mono, Courier-clone, 开源)
+//   - CJK 宋体   : FandolSong (开源)
+//   - CJK 黑体   : FandolHei  (开源)
+//   - CJK 楷体   : FandolKai  (开源)
+// Typst 在西文字体缺字时会自动 fallback 到列表中后续的 CJK 字体；
+// 反过来 CJK 字体里出现的西文标点也会优先用主字体的对应字形。
 #let 字体 = (
-  // Word 模板: eastAsia=宋体, ascii/hAnsi=Times New Roman
-  宋体: ("Times New Roman", "SimSun"),
-  // Word 模板: eastAsia=黑体, ascii/hAnsi=Times New Roman
-  黑体: ("Times New Roman", "SimHei"),
-  楷体: ("Times New Roman", "KaiTi"),
-  代码: ("Consolas", "Courier New", "SimSun"),
+  宋体: ("TeX Gyre Termes", "FandolSong"),
+  黑体: ("TeX Gyre Termes", "FandolHei"),
+  楷体: ("TeX Gyre Termes", "FandolKai"),
+  代码: ("TeX Gyre Cursor", "FandolSong"),
 )

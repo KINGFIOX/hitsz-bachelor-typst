@@ -2,7 +2,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    win10-fonts.url = "github:KINGFIOX/win10-fonts";
   };
 
   outputs =
@@ -10,7 +9,6 @@
       self,
       nixpkgs,
       flake-utils,
-      win10-fonts,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -18,31 +16,6 @@
         pkgs = import nixpkgs {
           inherit system;
         };
-        win10Fonts = win10-fonts.packages.${system}.win10-fonts;
-
-        # Backport https://github.com/typst/typst/pull/8042 (merged 2026-03-30)
-        # onto typst 0.14.2 (released 2025-12-12). Without it,
-        # `typographic_family()` strips the "ExtB" suffix from "SimSun-ExtB" as
-        # if it were an "ExtraBold" variant, merging SimSun-ExtB into the
-        # SimSun family. Both then register as Normal/400 and `book.select()`
-        # picks one non-deterministically; on macOS the build picks
-        # SimSun-ExtB (no basic CJK glyphs) and silently falls back to
-        # KaiTi/NSimSun, while CI on Linux happens to pick the right SimSun.
-        #
-        # The patch is contained to crates/typst-library/src/text/font/exceptions.rs
-        # and does not touch Cargo.lock, so the upstream cargoHash stays valid.
-        # Drop this override once nixpkgs ships a typst release containing #8042.
-        typst = pkgs.typst.overrideAttrs (old: {
-          patches = (old.patches or [ ]) ++ [
-            (pkgs.fetchpatch {
-              name = "typst-pr-8042-fix-simsun-extb.patch";
-              url = "https://github.com/typst/typst/commit/7652884e3b26fd3161ce7768c90e2b5892a2111d.patch";
-              hash = "sha256-XvQzIcU1kui2+2a/QSkhSDbNY5RIi8m9VZODgJwihdM=";
-            })
-          ];
-        });
-
-        typstFontPath = "${win10Fonts}/share/fonts/truetype";
       in
       {
         packages.default = pkgs.stdenvNoCC.mkDerivation {
@@ -51,17 +24,22 @@
           src = ./.;
 
           nativeBuildInputs = [
-            typst
-            win10Fonts
+            pkgs.typst
           ];
 
           dontConfigure = true;
           dontFixup = true;
 
+          # Fonts are bundled in ./fonts (Times New Roman, SimSun, SimHei,
+          # KaiTi, Consolas, Courier New, Segoe UI Symbol) so that the build
+          # is fully self-contained and reproducible without an external
+          # win10-fonts flake. SimSun-ExtB (simsunb.ttf) is intentionally
+          # NOT included; including it would require backporting typst PR
+          # #8042 to keep macOS picking the right SimSun.
           buildPhase = ''
             runHook preBuild
             export HOME="$TMPDIR"
-            export TYPST_FONT_PATHS="${typstFontPath}"
+            export TYPST_FONT_PATHS="$PWD/fonts"
             export TYPST_IGNORE_SYSTEM_FONTS=true
             export TYPST_PACKAGE_PATH="$PWD/vendor/typst-packages"
             typst compile \
@@ -81,25 +59,20 @@
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            typst
-            win10Fonts
+            pkgs.typst
             pkgs.nodejs_22 # used for mcp
           ];
 
           # `TYPST_FONT_PATHS` is consumed by:
           #   - `typst` CLI invocations from the terminal
-          #   - tinymist preview, via `.vscode/settings.json`'s
-          #     `tinymist.fontPaths: ["${"$"}{env:TYPST_FONT_PATHS}"]`.
-          #     This works because the mkhl.direnv extension auto-loads
+          #   - tinymist preview: the mkhl.direnv extension auto-loads
           #     `.envrc` (`use flake`) on workspace open and injects this
-          #     variable into the tinymist LSP process; tinymist then
-          #     substitutes `${"$"}{env:...}` before passing paths to the
-          #     compiler. So preview, terminal `typst`, and `nix build` all
-          #     resolve fonts from the same nix-store directory.
+          #     variable into the tinymist LSP process. So preview,
+          #     terminal `typst`, and `nix build` all resolve fonts from
+          #     the project-local `./fonts` directory.
           shellHook = ''
-            ln -sfn "${typstFontPath}" fonts
             export TYPST_IGNORE_SYSTEM_FONTS=true
-            export TYPST_FONT_PATHS="${typstFontPath}"
+            export TYPST_FONT_PATHS="$PWD/fonts"
             export TYPST_PACKAGE_PATH="$PWD/vendor/typst-packages"
           '';
         };
