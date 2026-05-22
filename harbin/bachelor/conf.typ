@@ -3,7 +3,9 @@
 #import "../../common/components/header.typ": use-hit-header
 #import "../../common/components/footer.typ": use-footer-main, use-footer-preface
 #import "config/constants.typ": special-chapter-titles-additional, thesis-info-additional
-#import "../../common/config/constants.typ": current-date, main-text-line-spacing-multiplier, single-line-spacing
+#import "../../common/config/constants.typ": (
+  current-date, main-text-line-spacing-multiplier, page-margins, single-line-spacing,
+)
 #import "../../common/utils/states.typ": special-chapter-titles-state
 #import "../../common/utils/states.typ": (
   bibliography-state, default-header-text-state, digital-signature-option-state, thesis-info-state,
@@ -195,9 +197,11 @@
 
   digital-signature-option-state.update(current => current + digital-signature-option)
 
+  // 页面边距统一从 common/config/constants.typ 的 page-margins 读取，
+  // 与 Word 模板 sectPr -> pgMar（top=bottom=2.85cm，left=right=3cm）对齐。
   set page(
     paper: "a4",
-    margin: (top: 3.8cm, left: 3cm, right: 3cm, bottom: 2.85cm),
+    margin: page-margins,
   )
 
   show: show-cn-fakebold
