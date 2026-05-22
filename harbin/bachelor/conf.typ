@@ -232,8 +232,13 @@
 
   show: preface
 
+  // Word 模板里摘要正文样式（styleId="-" "论文正文-首行缩进"）的 rPr 不带任何
+  // 字符间距修饰（无 w:spacing val、无 w:w val），跟随 Normal 默认值。我们之前
+  // 给中文摘要塞 tracking=0.72pt、英文摘要塞 tracking=0.2pt + spacing=4.76pt，
+  // 会人为撑开字间距，渲染出来比 docx 明显稀疏，看起来"行宽更宽"。这里恢复
+  // 默认 0，以与 docx 对齐。
   if abstract-cn != none {
-    abstract-cn-page(keywords: keywords-cn, par-leading: 1.033em, par-spacing: 1.033em, text-tracking: 0.72pt)[
+    abstract-cn-page(keywords: keywords-cn, par-leading: 1.033em, par-spacing: 1.033em)[
       #abstract-cn
     ]
   }
@@ -243,8 +248,6 @@
       keywords: keywords-en,
       par-leading: 1.058em,
       par-spacing: 1.058em,
-      text-tracking: 0.2pt,
-      text-spacing: 4.76pt,
     )[
       #abstract-en
     ]
