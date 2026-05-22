@@ -97,6 +97,7 @@
           #     compiler. So preview, terminal `typst`, and `nix build` all
           #     resolve fonts from the same nix-store directory.
           shellHook = ''
+            ln -sfn "${typstFontPath}" fonts
             export TYPST_IGNORE_SYSTEM_FONTS=true
             export TYPST_FONT_PATHS="${typstFontPath}"
             export TYPST_PACKAGE_PATH="$PWD/vendor/typst-packages"
