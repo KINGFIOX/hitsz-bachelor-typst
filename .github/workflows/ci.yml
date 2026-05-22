@@ -27,7 +27,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Build thesis PDF
-        run: nix build .#default --print-build-logs --option sandbox false
+        run: nix build .#default --print-build-logs
 
       - name: Prepare release file
         if: github.event_name == 'push'
