@@ -62,10 +62,13 @@
 })
 
 #let code-figure(content, caption: [], supplement: [代码], label-name: "") = {
+  // When code blocks are intentionally presented as figures ("图"),
+  // share the same figure counter with image figures.
+  let figure-kind = if supplement == [图] { image } else { raw }
   let fig = figure(
     hit-sourcecode(content),
     caption: caption,
-    kind: raw,
+    kind: figure-kind,
     supplement: supplement,
   )
   [
