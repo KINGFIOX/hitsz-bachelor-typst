@@ -2,7 +2,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    win10-fonts.url = "github:KINGFIOX/win10-fonts";
   };
 
   outputs =
@@ -10,7 +9,6 @@
       self,
       nixpkgs,
       flake-utils,
-      win10-fonts,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -18,7 +16,6 @@
         pkgs = import nixpkgs {
           inherit system;
         };
-        win10Fonts = win10-fonts.packages.${system}.win10-fonts;
 
         # Backport https://github.com/typst/typst/pull/8042 (merged 2026-03-30)
         # onto typst 0.14.2 (released 2025-12-12). Without it,
@@ -42,7 +39,7 @@
           ];
         });
 
-        typstFontPath = "${win10Fonts}/share/fonts/truetype";
+        typstFontPath = "${./fonts}";
       in
       {
         packages.default = pkgs.stdenvNoCC.mkDerivation {
@@ -52,7 +49,6 @@
 
           nativeBuildInputs = [
             typst
-            win10Fonts
           ];
 
           dontConfigure = true;
@@ -82,7 +78,6 @@
         devShells.default = pkgs.mkShell {
           buildInputs = [
             typst
-            win10Fonts
             pkgs.nodejs_22 # used for mcp
           ];
 
@@ -95,9 +90,8 @@
           #     variable into the tinymist LSP process; tinymist then
           #     substitutes `${"$"}{env:...}` before passing paths to the
           #     compiler. So preview, terminal `typst`, and `nix build` all
-          #     resolve fonts from the same nix-store directory.
+          #     resolve fonts from the same project-local directory.
           shellHook = ''
-            ln -sfn "${typstFontPath}" fonts
             export TYPST_IGNORE_SYSTEM_FONTS=true
             export TYPST_FONT_PATHS="${typstFontPath}"
             export TYPST_PACKAGE_PATH="$PWD/vendor/typst-packages"
