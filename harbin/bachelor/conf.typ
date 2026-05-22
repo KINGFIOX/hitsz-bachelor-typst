@@ -55,6 +55,19 @@
 
   set page(numbering: "1")
 
+  // 缩窄脚注与正文之间的预留间隙。
+  //
+  // Typst 默认 `footnote.entry.clearance = 1em ≈ 12pt`，正文区底部会预留 12pt
+  // 留给脚注分隔线之上的空白；再加 separator 自身 (~0.5pt) + `gap: 0.5em` (~6pt)
+  // + 每条脚注 ~13pt + 多条之间的段距，两条脚注就会吃掉正文区底约 47pt。
+  // 这经常导致正文最后一行只差 1–2pt 装不下、被推到下一页，肉眼看上去
+  // 「页脚上方留着大片空白却没排满」。
+  //
+  // 把 `clearance` 压到 0.4em (~4.8pt)、`gap` 压到 0.35em (~4.2pt) 后，正文
+  // 底部多出约 13pt 余量，足够容纳一行额外正文；与 Word 模板里脚注紧贴
+  // 正文的视觉也更一致。
+  set footnote.entry(clearance: 0.4em, gap: 0.35em)
+
   show: use-heading-main
   show: use-footer-main
 
