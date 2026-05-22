@@ -1,61 +1,49 @@
 <mxfile host="65bd71144e">
     <diagram id="RYRM0IgxzEHv_DKKlseV" name="Page-1">
-        <mxGraphModel dx="1724" dy="983" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+        <mxGraphModel dx="966" dy="786" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="cluster_top" value="仿真平台 (C++20)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#ffffff;strokeColor=#666666;fontStyle=1;verticalAlign=top;spacingTop=10;" parent="1" vertex="1">
-                    <mxGeometry x="70" y="105" width="890" height="625" as="geometry"/>
-                </mxCell>
                 <mxCell id="main" value="main.cc&#10;入口与配置" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="390" y="150" width="170" height="80" as="geometry"/>
+                    <mxGeometry x="450" y="180" width="110" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="sdb" value="Sdb&#10;简易调试器" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#d79b00;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="390" y="300" width="170" height="80" as="geometry"/>
+                    <mxGeometry x="450" y="270" width="110" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="scrbrd" value="ScoreBoard&#10;Difftest 核心" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#b85450;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="385" y="460" width="180" height="70" as="geometry"/>
+                    <mxGeometry x="452.5" y="360" width="107.5" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="vcpu" value="VerilatorCpu&#10;DUT 驱动" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="690" y="300" width="180" height="80" as="geometry"/>
+                    <mxGeometry x="600" y="270" width="110" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="spike" value="SpikeCpu&#10;参考模型" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#9673a6;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="110" y="455" width="180" height="80" as="geometry"/>
+                    <mxGeometry x="260" y="365" width="110" height="45" as="geometry"/>
                 </mxCell>
                 <mxCell id="itrace" value="Tracer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#d6b656;" parent="1" vertex="1">
-                    <mxGeometry x="385" y="600" width="180" height="70" as="geometry"/>
+                    <mxGeometry x="450" y="460" width="110" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="nvboard" value="NVBoard&#10;外设可视化" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F7FA;strokeColor=#0e8088;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="690" y="595" width="180" height="80" as="geometry"/>
+                    <mxGeometry x="760" y="360" width="110" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="verilator" value="Verilator&#10;RTL -&gt; C++ 模型" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;" parent="1" vertex="1">
-                    <mxGeometry x="1000" y="300" width="180" height="80" as="geometry"/>
+                    <mxGeometry x="830" y="265" width="130" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="rtl" value="Chisel RTL&#10;(VNPCSoC)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;" parent="1" vertex="1">
-                    <mxGeometry x="1000" y="150" width="180" height="80" as="geometry"/>
+                    <mxGeometry x="822.5" y="170" width="145" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="e1" value="编译" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="rtl" target="verilator" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="e2" value="VNPCSoC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="verilator" target="vcpu" edge="1">
-                    <mxGeometry relative="1" as="geometry">
+                    <mxGeometry x="0.001" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1060" y="350"/>
+                            <mxPoint x="770" y="295"/>
+                            <mxPoint x="770" y="295"/>
                         </Array>
+                        <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="main" target="sdb" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="main" target="scrbrd" edge="1">
-                    <mxGeometry relative="1" as="geometry">
-                        <Array as="points">
-                            <mxPoint x="605" y="190"/>
-                            <mxPoint x="605" y="480"/>
-                        </Array>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="main" target="vcpu" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="e6" value="execute_steps" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="sdb" target="scrbrd" edge="1">
@@ -64,31 +52,31 @@
                 <mxCell id="e7" value="probe 信号" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="scrbrd" target="vcpu" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="740" y="510"/>
+                            <mxPoint x="630" y="385"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="e8" value="单步对比" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="scrbrd" target="spike" edge="1">
-                    <mxGeometry relative="1" as="geometry">
+                    <mxGeometry x="0.0154" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="370" y="495"/>
-                            <mxPoint x="370" y="495"/>
+                            <mxPoint x="420" y="390"/>
+                            <mxPoint x="420" y="390"/>
                         </Array>
+                        <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="scrbrd" target="itrace" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="475" y="610"/>
-                            <mxPoint x="475" y="610"/>
+                            <mxPoint x="505" y="450"/>
+                            <mxPoint x="505" y="450"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="e13" value="GPIO/UART/VGA" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="vcpu" target="nvboard" edge="1">
+                <mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;strokeWidth=1.6;" parent="1" source="vcpu" target="nvboard" edge="1">
                     <mxGeometry x="-0.3158" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="820" y="450"/>
-                            <mxPoint x="820" y="450"/>
+                            <mxPoint x="690" y="380"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
