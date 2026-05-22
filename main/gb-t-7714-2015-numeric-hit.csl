@@ -305,8 +305,12 @@
         </else>
       </choose>
       <choose>
-        <if type="dataset post post-weblog software webpage" variable="URL" match="all">
-          <text value="OL"/>
+        <if variable="URL">
+          <choose>
+            <if type="dataset post post-weblog software webpage" match="any">
+              <text value="OL"/>
+            </if>
+          </choose>
         </if>
       </choose>
     </group>

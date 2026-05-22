@@ -128,6 +128,11 @@
   }
 
   set text(lang: "zh")
+  // 把参考文献中形如 https://… / http://… 的文本包成 link()，否则在 PDF 中
+  // 它们只是普通文本，多数阅读器只能逐行自动识别 URL，导致 URL 一旦换行
+  // 后半段就无法点击。这里通过 show regex 注入真正的跨行 PDF URI 注释。
+  // 末位排除 ".,;)]" 是为了避免把句末的标点吃进链接里。
+  show regex("https?://[^\s]*[^\s.,;)\]]"): it => link(it.text)
   bibliography(
     title: title,
     // full: full,
