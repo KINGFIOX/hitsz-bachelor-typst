@@ -22,10 +22,20 @@
 // 一级标题特例：章标题始终在新页顶部出现，block.above 会被 Typst 在页边界处
 // 自动抑制（同 CSS 的 vertical margin collapse），需要在 pagebreak 之后显式
 // 用 v() 补回页眉到章标题之间的空白。该值由 heading-above[0] 提供。
+//
+// Word 对齐说明：同学论文 docx 模板里章节标题的 pPr 是
+// `w:spacing w:beforeLines="100" w:line="300" w:lineRule="auto"`，
+// 即段前预留 1 个文档网格行 = 412 twip = 20.6 pt。docx 实测章节标题
+// 首字 yMin = 124.84 pt。在 page-margins.top = 3.73 cm = 105.65 pt
+// 的前提下：
+//   chapter_title_top_y = page-margins.top + above - 3.11 pt(字体偏移)
+//                       = 105.65 + above - 3.11 = 124.84
+//   => above = 22.3 pt
+// 误差 < 0.5 pt。
 
 #let heading-level-1-style(
   it,
-  above: 27pt,
+  above: 22.3pt,
   below: 33.5pt,
 ) = {
   set align(center)
@@ -53,7 +63,7 @@
 
 #let use-heading-preface(
   content,
-  heading-above: (27pt,),
+  heading-above: (22.3pt,),
   heading-below: (33.5pt,),
 ) = {
   show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
@@ -66,7 +76,7 @@
 
 #let use-heading-main(
   content,
-  heading-above: (27pt, 24.0pt, 21.0pt, 13.0pt),
+  heading-above: (22.3pt, 24.0pt, 21.0pt, 13.0pt),
   heading-below: (33.5pt, 24.0pt, 21.0pt, 13.0pt),
 ) = {
   set heading(numbering: numbly(
@@ -117,7 +127,7 @@
 
 #let use-heading-end(
   content,
-  heading-above: (27pt,),
+  heading-above: (22.3pt,),
   heading-below: (33.5pt,),
 ) = {
   show heading.where(level: 1): heading-level-1.with(above: array-at(heading-above, 1), below: array-at(
