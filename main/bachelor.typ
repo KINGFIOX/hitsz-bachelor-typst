@@ -7,7 +7,7 @@
 #show: doc.with(
   thesis-info: (
     title-cn: "RISC-V指令集乱序处理器设计",
-    title-en: "Design of RISC-V Out-of-Order Processor",
+    title-en: "DESIGN OF RISC-V OUT-OF-ORDER PROCESSOR",
     author: "王靳",
     student-id: "220111012",
     supervisor: "薛睿高级实验师",
