@@ -1,5 +1,5 @@
 #import "../theme/type.typ": 字体, 字号
-#import "@preview/numbly:0.1.0": numbly
+#import "@local/numbly:0.1.0": numbly
 
 #let indent = h(2em)
 

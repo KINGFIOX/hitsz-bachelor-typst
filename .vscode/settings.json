@@ -12,5 +12,11 @@
   // SimSong, SIL-Hei-Med-Jian, ...) and uses them when SimSun is not
   // visible, so the preview drifts away from the final PDF.
   "tinymist.systemFonts": false,
-  "tinymist.fontPaths": ["${env:TYPST_FONT_PATHS}"]
+  "tinymist.fontPaths": ["${env:TYPST_FONT_PATHS}"],
+  "tinymist.typstExtraArgs": [
+    "--package-path",
+    "${workspaceFolder}/vendor/typst-packages",
+    "--package-cache-path",
+    "${workspaceFolder}/vendor/typst-packages"
+  ]
 }

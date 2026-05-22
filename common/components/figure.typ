@@ -52,7 +52,7 @@
   ]
 }
 
-#import "@preview/codelst:2.0.2": code-frame, sourcecode
+#import "@local/codelst:2.0.2": code-frame, sourcecode
 #import "../theme/type.typ": 字体, 字号
 
 #let codelst-sourcecode = sourcecode

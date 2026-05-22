@@ -8,9 +8,9 @@
 #import "../../common/utils/states.typ": (
   bibliography-state, default-header-text-state, digital-signature-option-state, thesis-info-state,
 )
-#import "@preview/cuti:0.4.0": show-cn-fakebold
-#import "@preview/i-figured:0.2.4": reset-counters, show-equation, show-figure
-#import "@preview/lovelace:0.2.0": setup-lovelace
+#import "@local/cuti:0.4.0": show-cn-fakebold
+#import "@local/i-figured:0.2.4": reset-counters, show-equation, show-figure
+#import "@local/lovelace:0.2.0": setup-lovelace
 #import "pages/cover.typ": cover
 #import "../../common/pages/abstract.typ": abstract-cn as abstract-cn-page, abstract-en as abstract-en-page
 #import "../../common/pages/outline.typ": outline-page

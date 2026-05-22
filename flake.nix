@@ -47,7 +47,7 @@
       {
         packages.default = pkgs.stdenvNoCC.mkDerivation {
           pname = "bachelor-thesis";
-          version = "0.1.0";
+          version = self.shortRev or "dirty";
           src = ./.;
 
           nativeBuildInputs = [
@@ -63,8 +63,10 @@
             export HOME="$TMPDIR"
             export TYPST_FONT_PATHS="${typstFontPath}"
             export TYPST_IGNORE_SYSTEM_FONTS=true
+            export TYPST_PACKAGE_PATH="$PWD/vendor/typst-packages"
             typst compile \
               --root . \
+              --package-path "$TYPST_PACKAGE_PATH" \
               main/bachelor.typ bachelor.pdf
             runHook postBuild
           '';
@@ -97,6 +99,7 @@
           shellHook = ''
             export TYPST_IGNORE_SYSTEM_FONTS=true
             export TYPST_FONT_PATHS="${typstFontPath}"
+            export TYPST_PACKAGE_PATH="$PWD/vendor/typst-packages"
           '';
         };
       }
