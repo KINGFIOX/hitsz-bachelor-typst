@@ -197,7 +197,7 @@
 
   set page(
     paper: "a4",
-    margin: (top: 3.8cm, left: 3cm, right: 3cm, bottom: 2.85cm),
+    margin: (top: 36.5mm, left: 30mm, right: 30mm, bottom: 28.8mm),
   )
 
   show: show-cn-fakebold
@@ -206,13 +206,16 @@
 
   cover()
 
-  // Word 模板: 正文 1.25 倍行距，文档网格行距 20.6pt（baseline-to-baseline）。
+  // LaTeX 模板（hithesisbook.cls）正文：
+  //   \@setfontsize\normalsize{12bp}{20.50394bp}
+  // 即 12pt 字号下，baseline-to-baseline = 20.50394pt。
+  //
   // Typst 中 baseline_distance ≈ 自然行盒高度 + leading；自然行盒由
   // top-edge / bottom-edge 决定，默认是 cap-height → baseline，
   // 经实测在小四混排（Times New Roman + SimSun）下约为 8.2pt（≈ 0.683em），
-  // 因此 leading ≈ 20.6pt - 8.2pt ≈ 12.4pt ≈ 1.033em。
-  // 纯英文（Times New Roman）下自然行盒略小，约为 7.9pt，需要 leading ≈ 12.7pt ≈ 1.058em。
-  let leading = 1.033em
+  // 因此 leading ≈ 20.50394pt - 8.2pt ≈ 12.30pt ≈ 1.025em。
+  // 纯英文（Times New Roman）下自然行盒略小，约为 7.9pt，需要 leading ≈ 12.60pt ≈ 1.050em。
+  let leading = 1.025em
   let spacing = leading
   set par(
     first-line-indent: (
@@ -229,7 +232,7 @@
   show: preface
 
   if abstract-cn != none {
-    abstract-cn-page(keywords: keywords-cn, par-leading: 1.033em, par-spacing: 1.033em, text-tracking: 0.72pt)[
+    abstract-cn-page(keywords: keywords-cn, par-leading: 1.025em, par-spacing: 1.025em, text-tracking: 0.72pt)[
       #abstract-cn
     ]
   }
@@ -237,8 +240,8 @@
   if abstract-en != none {
     abstract-en-page(
       keywords: keywords-en,
-      par-leading: 1.058em,
-      par-spacing: 1.058em,
+      par-leading: 1.050em,
+      par-spacing: 1.050em,
       text-tracking: 0.2pt,
       text-spacing: 4.76pt,
     )[
@@ -246,7 +249,7 @@
     ]
   }
 
-  outline-page(par-leading: 1.033em)
+  outline-page(par-leading: 1.025em)
 
   figure-options = (
     figure-options

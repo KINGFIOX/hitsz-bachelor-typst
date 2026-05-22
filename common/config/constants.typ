@@ -48,11 +48,16 @@
   scanned-copy: [ ],
 )
 
+// LaTeX 模板 (hithesisbook.cls，harbin bachelor 分支) 页面几何：
+//   text width  = 150 mm（与 a4 210 mm 减去左右各 30 mm 一致）
+//   top         = 36.5 mm
+//   bottom      = 28.8 mm
+//   left/right  = 30 mm
 #let page-margins = (
-  top: 3.8cm,
-  bottom: 2.85cm,
-  left: 3cm,
-  right: 3cm,
+  top: 36.5mm,
+  bottom: 28.8mm,
+  left: 30mm,
+  right: 30mm,
 )
 
 #let distance-to-the-edges = (
@@ -60,6 +65,8 @@
   footer: 2.3cm,
 )
 
-// Word 模板文档网格行距 = 412 twips = 20.6pt
-#let main-text-line-spacing-multiplier = 1.25
-#let single-line-spacing = 20.6pt
+// LaTeX 模板正文 baselineskip：\@setfontsize\normalsize{12bp}{20.50394bp}
+//   即 12pt 字号下，行盒到行盒（baseline-to-baseline）距离 = 20.50394pt
+//   Word 模板文档网格行距 = 412 twips = 20.6pt（仅作历史参考，不再使用）
+#let main-text-line-spacing-multiplier = 20.50394 / 12 // ≈ 1.7087
+#let single-line-spacing = 20.50394pt

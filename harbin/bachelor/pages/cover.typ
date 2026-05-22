@@ -28,8 +28,9 @@
 
     #v(36pt)
 
+    // LaTeX hithesisbook.cls 第一封面：\erhao\textbf{\MakeUppercase{...}} → 二号 (22pt) 加粗
     #par(justify: false)[
-      #text(size: 字号.小二, font: 字体.宋体, weight: "bold")[#title-en]
+      #text(size: 字号.二号, font: 字体.宋体, weight: "bold")[#upper(title-en)]
     ]
 
     #v(62pt)
