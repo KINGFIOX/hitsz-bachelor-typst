@@ -48,8 +48,14 @@
   scanned-copy: [ ],
 )
 
+// 对齐 Word 模板：sectPr -> pgMar top=1616 right=1701 bottom=1616 left=1701
+// （单位 twip，÷20 得 pt，÷567 得 cm）。
+//   top    = 1616 twip = 80.8 pt ≈ 2.85 cm
+//   right  = 1701 twip = 85.05 pt ≈ 3.00 cm
+//   bottom = 1616 twip ≈ 2.85 cm
+//   left   = 1701 twip ≈ 3.00 cm
 #let page-margins = (
-  top: 3.8cm,
+  top: 2.85cm,
   bottom: 2.85cm,
   left: 3cm,
   right: 3cm,
