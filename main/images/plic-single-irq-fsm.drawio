@@ -1,22 +1,22 @@
 <mxfile host="65bd71144e">
     <diagram id="IOGTfHE-7gEJAqYYTkXk" name="Page-1">
-        <mxGraphModel dx="966" dy="786" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1000" pageHeight="620" math="0" shadow="0">
+        <mxGraphModel dx="604" dy="491" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1000" pageHeight="620" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
                 <mxCell id="idle" value="idle" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="130" y="270" width="140" height="80" as="geometry"/>
+                    <mxGeometry x="240" y="250" width="70" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="pending" value="pending" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="350" y="120" width="160" height="90" as="geometry"/>
+                    <mxGeometry x="390" y="140" width="80" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="claimed" value="claimed" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="350" y="260" width="160" height="90" as="geometry"/>
+                    <mxGeometry x="390" y="250" width="80" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="e1" value="src=1 &amp;amp;&amp;amp; valid" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;" parent="1" source="idle" target="pending" edge="1">
-                    <mxGeometry x="0.3242" relative="1" as="geometry">
+                    <mxGeometry x="0.3904" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="180" y="150"/>
+                            <mxPoint x="260" y="160"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
@@ -32,24 +32,24 @@
                 <mxCell id="e5" value="complete &amp;&amp; src=1" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;" parent="1" source="claimed" target="pending" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="560" y="300"/>
-                            <mxPoint x="560" y="165"/>
+                            <mxPoint x="530" y="280"/>
+                            <mxPoint x="530" y="165"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="e6" value="complete&lt;br&gt;&amp;amp;&amp;amp; src=0" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;" parent="1" source="claimed" target="idle" edge="1">
                     <mxGeometry x="-0.0206" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="350" y="320"/>
-                            <mxPoint x="350" y="320"/>
+                            <mxPoint x="360" y="280"/>
+                            <mxPoint x="360" y="280"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="e7" value="withdraw (src=0)" style="endArrow=classic;edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.8;" parent="1" source="pending" target="idle" edge="1">
-                    <mxGeometry x="-0.3282" relative="1" as="geometry">
+                    <mxGeometry x="-0.5057" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="230" y="190"/>
+                            <mxPoint x="290" y="180"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
