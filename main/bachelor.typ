@@ -787,7 +787,7 @@ CSRU 路径。处理 CSR 读写指令。与 LSU 类似，由 ROB 在提交阶段
 @fig:priv-fsm 展示了 M/S/U 三级特权模式之间的完整转换关系。
 
 #figure(
-  image("images/priv-fsm.png"),
+  image("images/priv-fsm.svg"),
   caption: [M/S/U 特权级状态机],
   supplement: [图],
 ) <priv-fsm>
